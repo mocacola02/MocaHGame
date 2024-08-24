@@ -87,3 +87,9 @@ defaultproperties
 	bAllowOnlyOneTrack=True
 }
 */
+
+DefaultProperties
+{
+	// Metallicafan212:	Match the stock HGame behavior
+	bCancelOnRetrigger=false
+}
