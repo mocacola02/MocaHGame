@@ -59,6 +59,11 @@ var Font LocalIconMessageFont;
 var Font LocalTinyFont;
 var Font IntMedFont;
 
+// Metallicafan212:	HP2 shouldn't call this
+event bool ShouldDrawLevelInfo(canvas C, string URL)
+{
+	return false;
+}
 
 function ExitFromGame()
 {
