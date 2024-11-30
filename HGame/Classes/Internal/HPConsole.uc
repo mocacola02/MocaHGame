@@ -1393,7 +1393,7 @@ function RenderUWindow (Canvas Canvas)
 	// Metallicafan212:	Track the windows mouse and hide this mouse cursor if we move it
 	else if(Root != None && Root.bForceFakeMouse && Viewport.bWindowsMouseAvailable)
 	{
-		if(Viewport.WindowsMouseX  != LastMouseX || Viewport.WindowsMouseY != LoastMouseY)
+		if(Viewport.WindowsMouseX  != LastMouseX || Viewport.WindowsMouseY != LastMouseY)
 		{
 			MouseX = Viewport.WindowsMouseX / Root.GUIScale;
 			MouseY = Viewport.WindowsMouseY / Root.HGUIScale;//Root.GUIScale;
@@ -1401,7 +1401,7 @@ function RenderUWindow (Canvas Canvas)
 		}
 		
 		LastMouseX 	= Viewport.WindowsMouseX;
-		LoastMouseY = Viewport.WindowsMouseY;
+		LastMouseY = Viewport.WindowsMouseY;
 	}
   
 	if (  !bCreatedRoot )
