@@ -1080,7 +1080,7 @@ event bool KeyEvent (EInputKey Key, EInputAction Action, float Delta)
 					case IK_XBLeftStickX:
 						if(Delta != 0.0)
 						{
-							MouseX = MouseX + (Delta * LastDeltaT * ControllerMouseScale);
+							MouseX = MouseX + (Delta * ControllerMouseScale);
 							Root.bForceFakeMouse = true;
 							
 							// Metallicafan212:	Force a return true
@@ -1092,7 +1092,7 @@ event bool KeyEvent (EInputKey Key, EInputAction Action, float Delta)
 					case IK_XBLeftStickY:
 						if(Delta != 0.0)
 						{
-							MouseY = MouseY - (Delta * LastDeltaT * ControllerMouseScale);
+							MouseY = MouseY - (Delta * ControllerMouseScale);
 							Root.bForceFakeMouse = true;
 							
 							// Metallicafan212:	Force a return true
