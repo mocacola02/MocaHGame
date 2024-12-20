@@ -21,6 +21,9 @@ var Array<HProp> propArray;
 var bool bHideStatus;
 var bool bHideHud;
 
+// Omega: Add a bool to hide the console messaging log in debug mode
+var globalconfig bool bSilentMessages;
+
 // Metallicafan212:	Hide the hud items in game, better than using the glitch all the time
 exec function HideHud()
 {
@@ -244,12 +247,20 @@ simulated function PostBeginPlay()
 
 simulated function bool DisplayMessages (Canvas Canvas)
 {
-	if ( HPConsole(PlayerPawn(Owner).Player.Console).bDebugMode && !bHideHud )
+	// Omega: Silence messages
+	if ( HPConsole(PlayerPawn(Owner).Player.Console).bDebugMode && !bHideHud && !bSilentMessages)
 	{
 		return False;
 	}
 	
 	return True;
+}
+
+// Omega: Silence the console messages:
+exec function SilenceMessages()
+{
+	bSilentMessages = !bSilentMessages;
+	SaveConfig();
 }
 
 simulated function PostRender (Canvas Canvas)

@@ -70,6 +70,11 @@ struct StatusSaveData
 
 const NUM_HURT_SOUNDS= 15;
 var globalconfig bool bAutoCenterCamera;
+
+// Omega: DOLLY CHANGES
+// Omega: Whether to dolly zoom camera for higher fovs or not
+var globalconfig bool bDollyZoomCamera;
+
 var globalconfig bool bMoveWhileCasting;
 var globalconfig bool bAutoQuaff;
 var globalconfig bool bWithOlly;
@@ -307,24 +312,34 @@ var travel string strObjectiveSection;
 
 event PreBeginPlay()
 {
-  Super.PreBeginPlay();
-  foreach AllActors(Class'Director',Director)
-  {
-    //goto JL001A;
-	break;
-  }
-  SpellCursor = Spawn(Class'SpellCursor');
-  if ( managerStatus == None )
-  {
-    managerStatus = Spawn(Class'StatusManager');
-    managerStatus.PlayerHarry = self;
-    managerStatus.CreateStartupItems();
-  }
-  AddToSpellBook(Class'spellFlipendo');
-  AddToSpellBook(Class'spellLumos');
-  AddToSpellBook(Class'spellAlohomora');
-  bNoSpellBookCheck = False;
-  menuBook = HPConsole(Player.Console).menuBook;
+	Super.PreBeginPlay();
+	// Omega: FOV CHANGES
+	// Omega: Set our FOV on startup?
+	FOVAngle = DesiredFOV;
+	
+	foreach AllActors(Class'Director',Director)
+	{
+		//goto JL001A;
+		break;
+	}
+	SpellCursor = Spawn(Class'SpellCursor');
+	if ( managerStatus == None )
+	{
+		managerStatus = Spawn(Class'StatusManager');
+		managerStatus.PlayerHarry = self;
+		managerStatus.CreateStartupItems();
+	}
+	AddToSpellBook(Class'spellFlipendo');
+	AddToSpellBook(Class'spellLumos');
+	AddToSpellBook(Class'spellAlohomora');
+	bNoSpellBookCheck = False;
+	menuBook = HPConsole(Player.Console).menuBook;
+}
+
+// Omega: FOV CHANGES
+event UpdateEyeHeight(float DeltaTime)
+{
+	// Metallicafan212:	STOP THIS, GET SOME HELP!
 }
 
 /*
@@ -440,11 +455,18 @@ function PostBeginPlay()
 	//If there's no camera, make one.
 	ForEach AllActors( class'BaseCam', cam )
 		break;
+	
 	if( cam == none )
+	{
 		cam = spawn( class'BaseCam' );
+		// Omega: Fix a one-tick lag for the spell cursor
+		SpellCursor.TickParent = cam;
+	}
+	
 		
 	// Metallicafan212:	Correct the fov
-	Cam.SetFOV(90.0);
+	// Omega: No longer needed
+	//Cam.SetFOV(90.0);
 
 	viewClass(class'BaseCam', true);
 
@@ -991,7 +1013,17 @@ event TravelPostAccept()
 		cm(" *-*-* Turn OFF the loading screen because we are *NOT* QueuedToSaveGame.");
 		Log(" *-*-* Turn OFF the loading screen because we are *NOT* QueuedToSaveGame.");
 		bShowLoadingScreen = False;
+		
+		// Omega: Fix the cutscene skip state desyncing when loading into a save that was skipping
+		Log("Loading into save with cutscene skip state: " $HPHud(MyHud).managerCutScene.bShowFF);
+		if(HPHud(MyHud).managerCutScene.bShowFF)
+		{
+			HPConsole(Player.Console).StartFastForward();
+		}
 	}
+	
+	// Omega: FOV CHANGES
+	Cam.FOVChanged();
 }
 
 function CopyAllStatusFromHarryToManager()

@@ -27,6 +27,10 @@ var int nPlayedCount;
 var bool bFastForwarding;
 var int safetyLoopCount;
 
+// Omega: New cutscript class vars. Cutscript now has a forward def for load, unimplemented for base
+// cutscript class
+var() class<CutScript> CutscriptClass, CutscriptDiskClass;
+
 function CutSceneLog (string Str)
 {
 	Level.PlayerHarryActor.ClientMessage("CutSceneLog:<" $ FileName $ ">" $ Str);
@@ -112,24 +116,34 @@ function CreateThreads ()
 			Line = Localize("thread_"$t,"line_0","Cutscenes\\" $FileName);
 			if ( InStr(Line,"<?") == -1 )
 			{
-				aThreads[t] = Spawn(Class'CutScriptDisk');
-				CutScriptDisk(aThreads[t]).load("thread_" $t,"Cutscenes\\" $FileName);
+				//aThreads[t] = Spawn(Class'CutScriptDisk');
+				//CutScriptDisk(aThreads[t]).load("thread_" $t,"Cutscenes\\" $FileName);
+
+				// Omega: New cutscript disk spawn:
+				aThreads[t] = Spawn(CutscriptDiskClass);
+				aThreads[t].load("thread_" $t,"Cutscenes\\" $FileName);
 				aThreads[t].parentCutScene = self;
 				aThreads[t].threadNum = t;
 				aThreads[t].Play();
+				//Log(Self$ "Disk cutscript spawn: " $aThreads[t]);
 			}
 		}
-	} else 
+	} 
+	else 
 	{
 		for(I = 0; I < MAX_THREADS; I++)
 		{
 			if ( Len(aThreadScripts[I]) > 0 )
 			{
-				aThreads[I] = Spawn(Class'CutScript');
+				//aThreads[I] = Spawn(Class'CutScript');
+				// Omega: New cutscript spawn:
+				aThreads[I] = Spawn(CutscriptClass);
 				aThreads[I].Script = aThreadScripts[I];
 				aThreads[I].parentCutScene = self;
-				aThreads[t].threadNum = t;
+				// Omega: They had this using t instead of I...
+				aThreads[I].threadNum = I;
 				aThreads[I].Play();
+				//Log(Self$ "Regular cutscript spawn: " $aThreads[t]);
 			}
 		}
 	}
@@ -222,6 +236,7 @@ state Idle
 			{
 				bTriggerStarts = False;
 			}
+			
 			Play();
 		}
 	}
@@ -298,9 +313,9 @@ function FastForward ()
 
 state Running
 {
-  event Tick (float Time)
-  {
-  }
+	event Tick (float Time)
+	{
+	}
   
 	function FastForward ()
 	{
@@ -389,8 +404,8 @@ state FastForwarding
 		{
 			if ( safetyLoopCount > 15 )
 			{
-			CutSceneLog("***CUTERROR:SKIP ERROR:" $ string(self) $ " failed to advance after " $ string(safetyLoopCount) $ " loops");
-			DumpCurState();
+				CutSceneLog("***CUTERROR:SKIP ERROR:" $ string(self) $ " failed to advance after " $ string(safetyLoopCount) $ " loops");
+				DumpCurState();
 			}
 			CutSceneLog(string(self) $ " skipped");
 			bFastForwarding = False;
@@ -467,4 +482,9 @@ defaultproperties
     AmbientGlow=75
 
     bCollideActors=True
+
+	// Omega: Allow Cutscript classes to be swappable for people to make their own
+	CutscriptClass=Class'CutScript'
+
+	CutscriptDiskClass=Class'CutScriptDisk'
 }

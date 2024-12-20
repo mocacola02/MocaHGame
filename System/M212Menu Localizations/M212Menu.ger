@@ -1,4 +1,8 @@
 [All]
+M212MenuDollyZoom=Kameraabstand anpassen
+M212MenuDollyZoomToolTip=Passt den Kameraabstand für höhere Sichtfeldwerte an.
+M212MenuFOV=Sichtfeld
+M212MenuFOVToolTip=Passt das Sichtfeld der Kamera für die meisten Spielsequenzen an.
 M212MenuKeyboardLook=Pfeiltastenbewegung
 M212MenuControllerVibration=Controllervibration
 M212MenuFontScale=Schriftskalierung

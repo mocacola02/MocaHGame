@@ -1,4 +1,8 @@
 [All]
+M212MenuDollyZoom=Adjust Camera Distance
+M212MenuDollyZoomToolTip=Adjusts the camera follow distance to account for higher field of view values.
+M212MenuFOV=Field of View
+M212MenuFOVToolTip=Sets the camera's field of view for most gameplay scenes.
 M212MenuKeyboardLook=Keyboard Look
 M212MenuControllerVibration=Controller Vibration
 M212MenuFontScale=Font Scaling

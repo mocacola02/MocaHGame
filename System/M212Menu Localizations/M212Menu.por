@@ -1,4 +1,8 @@
 [All]
+M212MenuDollyZoom=Ajustar distância da câmara
+M212MenuDollyZoomToolTip=Ajusta a distância da câmara para valores de campo de visão mais elevados.
+M212MenuFOV=Campo de visão
+M212MenuFOVToolTip=Ajusta o campo de visão da câmara para a maioria das sequências de jogo.
 M212MenuKeyboardLook=Movimento com Teclas de Seta
 M212MenuControllerVibration=Vibração do Comando
 M212MenuFontScale=Tamanho da Fonte
@@ -6,7 +10,7 @@ M212MenuFontScaleToolTip=Aumenta e diminui o tamanho da fonte do jogo.
 M212MenuHUDCenter=Centralização do Menu
 M212MenuHUDCenterToolTip=Move os elementos do Menu e do HUD para uma proporção de 4:3.
 M212MenuControllerSensitivity=Sensibilidade dos Manípulos
-M212MenuMouseSmooth=Suavização da Câmera
+M212MenuMouseSmooth=Suavização da Câmara
 M212MenuNextPage=Página seguinte
 M212MenuPrevPage=Página anterior
 M212KeyboardMenu=Controles de Teclado e Rato

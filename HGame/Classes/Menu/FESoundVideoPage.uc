@@ -84,6 +84,19 @@ var localized string 	TextScaleText; // lol
 var string 				TextScaleDisplayText;
 var localized string 	TextScaleToolText;
 
+var HGameHSlider		FOVSlider;
+var HGameLabelControl	FOVLabel;
+var HGameLabelControl 	FOVHiText;
+var HGameLabelControl 	FOVLoText;
+var localized string 	FOVText;
+var string 				FOVDisplayText;
+var localized string 	FOVToolText;
+
+var HGameCheckbox 		DollyZoomCheckbox;
+var localized string 	DollyZoomText;
+var localized string 	DollyZoomToolText;
+
+
 function LocalizeStrings()
 {
 	local int I;
@@ -118,6 +131,12 @@ function LocalizeStrings()
 
 	TextScaleText = Localize("all", "M212MenuFontScale", "M212Menu");
 	TextScaleToolText = Localize("all", "M212MenuFontScaleToolTip", "M212Menu");
+
+	FOVText = Localize("all", "M212MenuFOV", "M212Menu");
+	FOVToolText = Localize("all", "M212MenuFOVToolTip", "M212Menu");
+
+	DollyZoomText = Localize("all", "M212MenuDollyZoom", "M212Menu");
+	DollyZoomToolText = Localize("all", "M212MenuDollyZoomToolTip", "M212Menu");
 }
 
 function Created()
@@ -318,10 +337,54 @@ function Created()
 	// end of new elements
   
 	ctlY += vertSpacing[I++ ];
-	ctlY = 90 - offsetY;
+	// Omega: Start slightly higher
+	ctlY = /*90*/ 60 - offsetY;
 	ctlX = 380 - offsetX;
 	labelX = 470 - offsetX;
-  
+
+	// Omega: FOV CHANGES
+	// Omega: New elements for right side: FOV slider:
+	FOVLabel = HGameLabelControl(CreateAlignedControl(Class'HGameLabelControl',fRightMargin,ctlY + textOffsetY,labelWidth,labelHeight,,AT_Center));
+	
+	FOVLabel.SetFont(1);
+	FOVLabel.TextColor = GoupLabelTextColor;
+
+	ctlY += 30;
+	FOVSlider = HPMenuOptionHSlider(CreateAlignedControl(class'HPMenuOptionHSlider', fRightMargin, ctlY, SliderWidth, sliderHeight,,AT_Center));
+	FOVSlider.SetRange(90.0, 120.0, 1);
+	FOVSlider.bNoSlidingNotify = True;	// Omega: Forgot this and the game went to a CRAWLLL
+	FOVSlider.SliderWidth = SliderWidth;
+	FOVSlider.SetValue(GetPlayerOwner().DefaultFOV);
+	FOVSlider.SetText("");
+	// Omega: Set the value a little later
+	FOVLabel.SetText(FOVText$ " - " $int(FOVSlider.Value));
+
+	ctlY += 32;
+	FOVLoText = HGameLabelControl(CreateAlignedControl(class'HGameLabelControl', fRightMargin, ctlY, labelWidth, labelHeight,,AT_Center));
+	FOVLoText.SetText(String(Int(FOVSlider.MinValue)));
+	FOVLoText.SetFont(0);
+	FOVLoText.TextColor = GoupLabelTextColor;
+
+	FOVHiText = HGameLabelControl(CreateAlignedControl(class'HGameLabelControl', (fRightMargin + SliderWidth) - 20, ctlY, labelWidth, labelHeight,,AT_Center));
+	FOVHiText.SetText(String(Int(FOVSlider.MaxValue)));
+	FOVHiText.SetFont(0);
+	FOVHiText.TextColor = GoupLabelTextColor;
+	FOVHiText.bEnableWidthResize = true;
+	FOVHiText.ResizeRemoval = 20;
+
+	// Omega: Dolly zoom checkbox
+	ctlY += 12;
+
+	DollyZoomCheckbox = HPMenuOptionCheckBox(CreateAlignedControl(class'HPMenuOptionCheckBox', fRightMargin, ctlY, 160.0, 1.0,,AT_Center));
+	DollyZoomCheckbox.bChecked = harry(GetPlayerOwner()).bDollyZoomCamera;
+	DollyZoomCheckbox.SetText(DollyZoomText);
+	DollyZoomCheckbox.SetFont(0);
+	DollyZoomCheckbox.TextColor = LabelTextColor;
+	
+	ctlY += 30;
+	
+	// Omega: End of FOV
+
 	AudioLabel = HGameLabelControl(CreateAlignedControl(Class'HGameLabelControl',fRightMargin,ctlY,labelWidth,labelHeight,,AT_Center));
 	AudioLabel.SetText(audioText);
 	AudioLabel.SetFont(1);
@@ -743,6 +806,27 @@ function TextScaleChanged()
 	TextScaleLabel.SetText(TextScaleText$ " - " $Left(String(PP.ExtraFontScale), TextScaleDecimals)$ "X");
 }
 
+function FOVChanged()
+{
+	local Harry PlayerHarry;
+	PlayerHarry = Harry(GetPlayerOwner());
+	PlayerHarry.FOV(FOVSlider.Value);
+	PlayerHarry.Cam.FOVChanged();
+	PlayerHarry.SaveConfig();
+
+	FOVLabel.SetText(FOVText$ " - " $int(FOVSlider.Value));
+}
+
+function DollyZoomChanged()
+{
+	local Harry PlayerHarry;
+	PlayerHarry = Harry(GetPlayerOwner());
+	PlayerHarry.bDollyZoomCamera = !PlayerHarry.bDollyZoomCamera;
+	PlayerHarry.SaveConfig();
+
+	DollyZoomCheckbox.bChecked = PlayerHarry.bDollyZoomCamera;
+}
+
 function Notify (UWindowDialogControl C, byte E)
 {
 	local int I;
@@ -779,6 +863,12 @@ function Notify (UWindowDialogControl C, byte E)
 				case TextScaleSlider:
 					TextScaleChanged();
 					break;
+				case FOVSlider:
+					FOVChanged();
+					break;
+				case DollyZoomCheckbox:
+					DollyZoomChanged();
+					break;
 			}
 			break;
 		case DE_Click:
@@ -797,15 +887,21 @@ function Notify (UWindowDialogControl C, byte E)
 				case TextScaleSlider:
 					ToolTip(TextScaleToolText);
 					break;
+				case FOVSlider:
+					ToolTip(FOVToolText);
+					break;
+				case DollyZoomCheckbox:
+					ToolTip(DollyZoomToolText);
+					break;
 			}
 			break;
 		case DE_MouseLeave:
 			switch (C)
 			{
 				case HUDScaleSlider:
-					ToolTip("");
-					break;
 				case TextScaleSlider:
+				case FOVSlider:
+				case DollyZoomCheckbox:
 					ToolTip("");
 					break;
 			}

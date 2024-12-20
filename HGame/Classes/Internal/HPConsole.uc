@@ -108,6 +108,35 @@ function ShowCutConsole (bool flag)
 	}
 }
 
+// Omega: I'm interested to see this
+exec function ToggleCutConsole()
+{
+	bShowCutConsole = !bShowCutConsole;
+
+	if(CutConsoleWindow == None)
+	{
+		CutConsoleWindow = CutLogWindow(Root.CreateWindow(Class'CutLogWindow',64.0,64.0,320.0,320.0));
+	}
+
+	/*if(bShowCutConsole)
+	{
+		LaunchUWindow();
+		CutConsoleWindow.ShowWindow();
+	}
+	else
+	{
+		CutConsoleWindow.HideWindow();
+	}*/
+	if(CutConsoleWindow.WindowIsVisible())
+	{
+		CutConsoleWindow.HideWindow();
+	}
+	else
+	{
+		CutConsoleWindow.ShowWindow();
+	}
+}
+
 exec function Lumos_Debug()
 {
 	if ( baseWand(harry(Viewport.Actor).Weapon).TheLumosLight != None )
@@ -1269,16 +1298,8 @@ function SetupLanguage()
 			Root.Fonts[4] = LocalMedFont;
 		break;
 		*/
-		case "ENG":
-		case "INT":
-			LocalBigFont = Font'HugeInkFont';
-			LocalMedFont = Font'BigInkFont';
-			LocalSmallFont = Font'MedInkFont';
-			LocalTinyFont = Font'SmallInkFont';
-			LocalIconMessageFont = LocalSmallFont;
-			break;
-	
 		// Metallicafan212:	Missing non-localized languages
+		// Omega: Move to the INT block to fix incorrect fonts being used
 		case "BRA":
         case "DAN":
         case "DUT":
@@ -1290,13 +1311,36 @@ function SetupLanguage()
         case "POR":
         case "SPA":
         case "SWE":
-        case "USA":
+		case "USA":
+		// Omega: By default, the above block used the same block as USA with bad fonts
+		case "ENG":
+		case "INT":
+			LocalBigFont = Font'HugeInkFont';
+			LocalMedFont = Font'BigInkFont';
+			LocalSmallFont = Font'MedInkFont';
+			LocalTinyFont = Font'SmallInkFont';
+			LocalIconMessageFont = LocalSmallFont;
+			break;
+	
+		
+        /*case "BRA":
+        case "DAN":
+        case "DUT":
+        case "FIN":
+        case "FRE":
+        case "GER":
+        case "ITA":
+        case "NOR":
+        case "POR":
+        case "SPA":
+        case "SWE":
+		case "USA":
 			LocalBigFont = Font'BigInkFont';
 			LocalMedFont = Font'MedInkFont';
 			LocalSmallFont = Font'SmallInkFont';
 			LocalTinyFont = Font'TinyInkFont';
 			LocalIconMessageFont = Font'SmallInkFont';
-			break;
+			break;*/
    
 		// Metallicafan212:	Treat all "unknown" extensions as localized
 		default:
@@ -1343,6 +1387,14 @@ function SetupLanguage()
 	
 	IntMedFont = Font'BigInkFont';
 	SaveConfig();
+
+	// Omega: This is the only real place to put initialization code
+	if(CutConsoleWindow == None)
+	{
+		CutConsoleWindow = CutLogWindow(Root.CreateWindow(Class'CutLogWindow',64.0,64.0,320.0,320.0));
+		CutConsoleWindow.HideWindow();
+		bShowCutConsole = False;
+	}
 }
 
 event PostRender (Canvas Canvas)
@@ -1400,7 +1452,7 @@ function RenderUWindow (Canvas Canvas)
 			Root.bForceFakeMouse = false;
 		}
 		
-		LastMouseX 	= Viewport.WindowsMouseX;
+		LastMouseX = Viewport.WindowsMouseX;
 		LastMouseY = Viewport.WindowsMouseY;
 	}
   

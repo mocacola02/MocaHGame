@@ -1,4 +1,8 @@
 [All]
+M212MenuDollyZoom=Juster kameraavstanden
+M212MenuDollyZoomToolTip=Justerer kameraavstanden for høyere synsfeltverdier.
+M212MenuFOV=Synsfelt
+M212MenuFOVToolTip=Setter kameraets synsfelt for de fleste spillsekvenser.
 M212MenuKeyboardLook=Piltastbevegelse
 M212MenuControllerVibration=Kontrollervibrering
 M212MenuFontScale=Skriftskalering

@@ -17,7 +17,9 @@ var harry PlayerHarry;
 var bool bEaseTo;
 
 // Omega: So we can cache it
-var float OGDesiredFOV;
+// Rework this shit tbh
+//var float OGDesiredFOV;
+var float TempFOV, TempFOVDesired;
 
 function float EaseTo (float t)
 {
@@ -46,9 +48,11 @@ event BeginPlay ()
 	Super.BeginPlay();
 	PlayerHarry = harry(Level.PlayerHarryActor);
 	// Omega: Grab it so we can reset it later
-	OGDesiredFOV = PlayerHarry.DesiredFOV;
+	//OGDesiredFOV = PlayerHarry.DesiredFOV;
 	DestroyAllFOVControllers();
-	FOVStart = PlayerHarry.FovAngle;
+	FOVStart 		= PlayerHarry.FovAngle;
+	TempFov	 		= FOVStart;
+	TempFOVDesired 	= FOVStart;
 }
 
 function Init (float SetFOVEnd, float SetTime, optional bool bInEaseTo)
@@ -56,15 +60,18 @@ function Init (float SetFOVEnd, float SetTime, optional bool bInEaseTo)
 	FOVTime = SetTime;
 
 	// Omega: Dumbass hack. Treat 90 (unless the default here has been changed) as a code word to pull our configured value
-	if(SetFOVEnd == Default.FOVEnd)
+	/*if(SetFOVEnd == Default.FOVEnd && (PlayerHarry.Cam.CameraMode == CM_Standard || PlayerHarry.Cam.CameraMode == CM_FirstPerson) )
 	{
 		//FOVEnd = SetFOVEnd;
-		FOVEnd = PlayerHarry.DefaultFOV;
+		FOVEnd = PlayerHarry.DesiredFOV;
 	}
 	else
 	{
 		FOVEnd = SetFOVEnd;
-	}
+	}*/
+
+	// Omega: Harry now handles the FOV so I think I just want to do this?
+	FOVEnd = SetFOVEnd;
 
 	FOVStart 	= PlayerHarry.FovAngle;
 	bEaseTo 	= bInEaseTo;
@@ -92,8 +99,24 @@ function CutBypass ()
 
 function Finish ()
 {
-	PlayerHarry.DesiredFOV = FOVEnd;
-	PlayerHarry.FovAngle = FOVEnd;
+	//PlayerHarry.DesiredFOV = FOVEnd;
+	// Omega: Check for FOV Support in this camera mode
+	/*if(!PlayerHarry.Cam.SupportFOV() && FOVEnd == 90.0)
+	{
+		PlayerHarry.FovAngle = FOVEnd;
+	}
+	else 
+	{
+		PlayerHarry.FovAngle = PlayerHarry.DesiredFOV;
+	}*/
+	if(PlayerHarry.Cam.SupportFOV() && FOVEnd == 90)
+	{
+		PlayerHarry.FovAngle = PlayerHarry.DesiredFOV;
+	}
+	else
+	{
+		PlayerHarry.FOVAngle = FOVEnd;
+	}
 
 	//PlayerHarry.DesiredFOV = OGDesiredFOV;
 	//PlayerHarry.FovAngle = PlayerHarry.DesiredFOV;
@@ -109,20 +132,33 @@ auto state stateUpdateFOV
 		CurTime += fTimeDelta;
 		if ( CurTime <= FOVTime )
 		{
+			// Omega: We're calculating the transition to the desired at the same time since cutscenes like
+			// the sepia hallway start an FOV move from cutscene cam on one tick and then release. At least
+			// this way there's just one tick of incorrect fov (Probably unnoticable tbh)
 			if ( bEaseTo )
 			{
-				PlayerHarry.DesiredFOV = FOVStart + (FOVEnd - FOVStart) * EaseTo(FMin(CurTime / FOVTime,1.0));
-
+				//PlayerHarry.DesiredFOV = FOVStart + (FOVEnd - FOVStart) * EaseTo(FMin(CurTime / FOVTime,1.0));
+				TempFOV = FOVStart + (FOVEnd - FOVStart) * EaseTo(FMin(CurTime / FOVTime,1.0));
+				TempFOVDesired = FOVStart + (PlayerHarry.DesiredFOV - FOVStart) * EaseTo(FMin(CurTime / FOVTime,1.0));
 				//PlayerHarry.FovAngle = FOVStart + (FOVEnd - FOVStart) * EaseTo(FMin(CurTime / FOVTime,1.0));
 			}
 			else 
 			{
-				PlayerHarry.DesiredFOV += (FOVEnd - FOVStart) * FMin(fTimeDelta / FOVTime,1.0);
-
+				//PlayerHarry.DesiredFOV += (FOVEnd - FOVStart) * FMin(fTimeDelta / FOVTime,1.0);
+				TempFOV += (FOVEnd - FOVStart) * FMin(fTimeDelta / FOVTime,1.0);
+				TempFOVDesired += (PlayerHarry.DesiredFOV - FOVStart) * FMin(fTimeDelta / FOVTime,1.0);
 				//PlayerHarry.FovAngle += (FOVEnd - FOVStart) * FMin(fTimeDelta / FOVTime,1.0); 
 			}
 
-			PlayerHarry.FovAngle = PlayerHarry.DesiredFOV;
+			//PlayerHarry.FovAngle = PlayerHarry.DesiredFOV;
+			if(PlayerHarry.Cam.SupportFOV() && FOVEnd == 90.0)
+			{
+				PlayerHarry.FovAngle = TempFOVDesired;
+			}
+			else
+			{
+				PlayerHarry.FovAngle = TempFOV;
+			}
 		}
 		else 
 		{

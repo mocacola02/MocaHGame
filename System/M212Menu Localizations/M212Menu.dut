@@ -1,4 +1,8 @@
 [All]
+M212MenuDollyZoom=Camera-afstand aanpassen
+M212MenuDollyZoomToolTip=Past de camera-afstand aan bij een groter gezichtsveld.
+M212MenuFOV=Gezichtsveld
+M212MenuFOVToolTip=Stelt het gezichtsveld van de camera in voor de meeste spelsequenties.
 M212MenuKeyboardLook=Pijltoetsenbeweging
 M212MenuControllerVibration=Controllertrilling
 M212MenuFontScale=Lettergrootte

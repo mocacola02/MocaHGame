@@ -13,6 +13,7 @@ var int curScriptPosition;
 
 var array<String> aCues;			// List of cues that have already happened
 var array<String> aPendingCues;		// Used to queue cues, if you catch my drift
+var array<String> aErrorCues;		// Used to catch cues in the queue that can't cue
 
 var int nPendingCues;
 var int nCues;
@@ -37,6 +38,8 @@ var string lastCommand;
 var bool bScriptAdvancing;			// True if the script is not waiting on a cue to happen
 
 var bool bUsingBaseCam;				// True if the script is making use of Basecam. Appears to be unused otherwise, but may be useful elsewhere
+
+var bool bAggressivelyRecapture;	// If true, whenever a cutname is used, FindCutSubject will attempt to error correct the subject into being captured
 
 function bool CaptureActor (string actName)
 {
@@ -186,6 +189,33 @@ function Actor FindCutSubject (string subjectName)
 			return aCapturedActors[I];
 		}
 	}
+
+	// Omega: We fell through and should check if we can try this aggressively
+	if(bAggressivelyRecapture)
+	{
+		CutError("Aggressive recapture mode is on! Locating " $subjectName$ " and gently coercing them into our cutscene!");
+		if(CaptureActor(subjectName))
+		{
+			for(I = 0; I < aCapturedActors.Length; I++)
+			{
+				if(aCapturedActors[I].CutName ~= subjectName)
+				{
+					return aCapturedActors[I];
+				}
+			}
+		}
+		else
+		if(ReCaptureActor(subjectName))
+		{
+			for(I = 0; I < aCapturedActors.Length; I++)
+			{
+				if(aCapturedActors[I].CutName ~= subjectName)
+				{
+					return aCapturedActors[I];
+				}
+			}
+		}
+	}
 	
 	CutError("Failed to find " $ subjectName $ ". Actor not captured.");
 	return None;
@@ -194,6 +224,8 @@ function Actor FindCutSubject (string subjectName)
 function CutLog (string Str)
 {
 	Level.PlayerHarryActor.ClientMessage("CutLog:" $ sThreadName $ "->" $ Str);
+	HPConsole(Level.PlayerHarryActor.Player.Console).CutConsoleLog("CutLog:" $ sThreadName $ "->" $ Str);
+
 	if (!Class'Version'.Default.bDebugEnabled)
 	{
 		return;
@@ -213,6 +245,8 @@ function CutError (string Str)
 	Log("**** CutError:" $ sThreadName);
 	Log("**** CutError:" $ Str);
 	Log("*********************************************************");
+
+	HPConsole(Level.PlayerHarryActor.Player.Console).CutConsoleLog("!!!ERROR!!!:" $ sThreadName $ "->" $ Str);
 }
 
 // Omega: Some string filtering to get the next line
@@ -292,6 +326,9 @@ function bool GetNextCommand (out string Command)
 	return True;
 }
 
+// Omega: Forward def so we can do swappable Cutscript classes more easily
+function load (string threadName, string FileName);
+
 // Omega: Cues a CutCue, adding it to the array of Cue'd Cues.
 // This allows these to happen latently, but introduces the downside of being unable to reuse names of cues
 // Ensure that you pick unique names for specified cues
@@ -328,6 +365,69 @@ function CutCue (string cue)
 	}
 }
 
+// Omega: Iterate and remove a list of cues
+function RemoveCues(string cues)
+{
+	local int i;
+	local string curCue, log, failed;
+
+	do
+	{
+		curCue = ParseDelimitedString(cues," ",++i,False);
+
+		// Omega: Make sure that's gone
+		aErrorCues.RemoveItem(curCue);
+		if(aCues.RemoveItem(curCue))
+		{
+			log = log$ " " $curCue;
+		}
+		else
+		{
+			failed = failed$ " " $curCue;
+		}
+	}
+	until(curCue == "");
+
+	if(log != "")
+	{
+		CutLog("Successfully removed cues:" $log$ " failed: " $failed);
+	}
+	else
+	{
+		CutError("Unsuccessful in removing cues: " $failed);
+	}
+}
+
+function RemovePendingCues(string cues)
+{
+	local int i;
+	local string curCue, log, failed;
+
+	do
+	{
+		curCue = ParseDelimitedString(cues," ",++i,False);
+		if(aPendingCues.RemoveItem(curCue))
+		{
+			log = log$ " " $curCue;
+			nPendingCues--;
+		}
+		else
+		{
+			failed = failed$ " " $curCue;
+		}
+	}
+	until(curCue == "");
+
+	if(log != "")
+	{
+		CutLog("Successfully removed pending cues:" $log$ " failed: " $failed);
+	}
+	else
+	{
+		CutError("Unsuccessful in removing pending cues: " $failed);
+	}
+}
+
 // Omega: Queues a cue. See above on limitations of the system
 function AddPendingCue (string cue)
 {
@@ -336,6 +436,16 @@ function AddPendingCue (string cue)
 	if ( cue == "" )
 	{
 		CutError("Error blank Pending cue");
+	}
+
+	// Omega: If it exists in the error cue, do not
+	for(I = 0; I < aErrorCues.Length; I++)
+	{
+		if(aErrorCues[I] ~= cue)
+		{
+			CutError("Pending cue added for error'd cue: " $cue$ ". Skipping!");
+			return;
+		}
 	}
 
 	// Omega: Tell the user that this cue has already been recieved, since there's probably a mistake in the cutscene scripting in this case
@@ -435,11 +545,41 @@ function bool ParseCommand (string Command)
 		// EX: Cue MyCue
 		// Sends the cue, allowing any WaitFor commands to listen for it and resume script execution
 		case "CUE":
-			CutLog("Issuing: CUE:" $ ParseDelimitedString(Command," ",2,False));
+			CutLog("Issuing: CUE: " $ ParseDelimitedString(Command," ",2,False));
 			parentCutScene.CutCue(ParseDelimitedString(Command," ",2,False));
 			return True;
 			break;
-		
+
+		// Omega: Cue management functions
+		// remove specific cues
+		case "REMOVECUE":
+			CutLog("Issuing: REMOVECUE: " $ ParseDelimitedString(Command," ",2,True));
+			RemoveCues(ParseDelimitedString(Command," ",2,True));
+			return True;
+			break;
+		// Clear all previously done cues
+		case "CLEARCUES":
+			CutLog("Issuing: CLEARCUES");
+			aCues.Empty();
+			aErrorCues.Empty();
+			return True;
+			break;
+
+		// remove pending cues
+		case "REMOVEPENDINGCUE":
+			CutLog("Issuing: REMOVEPENDINGCUE: " $ ParseDelimitedString(Command," ",2,True));
+			RemovePendingCues(ParseDelimitedString(Command," ",2,True));
+			return True;
+			break;
+
+		// clear all pending cues and reset the pending cue count
+		case "CLEARPENDINGCUES":
+			CutLog("Issuing: CLEARPENDINGCUES");
+			aPendingCues.Empty();
+			nPendingCues = 0;
+			return True;
+			break;
+
 		// EX: Waitfor MyCue
 		// Pauses script execution until the cue is given
 		case "WAITFOR":
@@ -533,6 +673,21 @@ function bool ParseCommand (string Command)
 			ReleaseActor(ParseDelimitedString(Command," ",2,False));
 			return True;
 			break;
+
+		// Omega: Use on its own to enable an extremely aggressive capturing mode
+		// If a command fails to run on an actor, it will capture them. It will do so violently, with a bat.
+		// Ex: AggressiveCaptures True
+		// turns it on
+		// AggressiveCaptures False
+		// turns it off
+		case "AGGRESSIVECAPTURES":
+			local string doihavetodothistogetittocompile;
+			doihavetodothistogetittocompile = ParseDelimitedString(Command," ",2,False);
+			ParseBool(doihavetodothistogetittocompile, bAggressivelyRecapture);
+			CutLog("Issuing: AGGRESSIVECAPTURES for the running script! Aggresive capture mode: " $bAggressivelyRecapture);
+			return True;
+			break;
+		
 		// EX: Trigger MyTag
 		// Sends a trigger similarly to a level's trigger
 		case "TRIGGER":
@@ -719,6 +874,7 @@ function bool ParseCommand (string Command)
 					{
 						CutLog("GOTO: Clearing cues!");
 						aCues.Empty();
+						aErrorCues.Empty();
 					}
 					// We shouldn't have to clear the pending cues
 					//aPendingCues.Empty();
@@ -803,9 +959,13 @@ function bool ParseCommand (string Command)
 	
 	if ( subjectActor == None )
 	{
-		CutError("Failed to Parse Command:" $ Command $ ". Can't find subject");
+		untilCue = GetCue(Command);
+		CutError("Failed to Parse Command:" $ Command $ ". Can't find subject. Saving cue to handle later " $untilCue$ ". Cutscene will not play back correctly!!!");
+		
+		aErrorCues.AddItem(untilCue);
 		return False;
 	}
+	
 	actionPart = ParseDelimitedString(Command," ",2,True);
 	Index = InStr(actionPart,"*");
 	
@@ -841,9 +1001,19 @@ function bool ParseCommand (string Command)
 		//CutError("Trying to issue command to:" $ string(subjectActor) $ " when previous CutCommand hasnt finished yet!!!!! PreviousCue:" $ subjectActor.sCutNotifyCue);
 		CutLog(subjectActor.CutName$ " Doing asynchronous CutCommand. Previous Cue: " $subjectActor.sCutNotifyCue$ " Current cue: " $untilCue);
 	}
+
+	// Omega: Try and pass them onto a new cutscene if on nothing. Basecam needs to not be touched since it's able to be addressed outside of capture
+	if( subjectActor.CutNotifyActor == None && bAggressivelyRecapture && !subjectActor.IsA('BaseCam'))
+	{
+		CaptureActor(subjectActor.CutName);
+		ReCaptureActor(subjectActor.CutName);
+	}
+	
 	if ( subjectActor.CutNotifyActor != self )
 	{
 		CutError("Trying to issue command to:" $ string(subjectActor) $ " when actor is captured by:" $ string(subjectActor.CutNotifyActor));
+		// Omega: if we're not captured, special cues can fail
+		aErrorCues.AddItem(untilCue);
 	}
 
 	// Omega: and now finally, issuing the command to the subject
@@ -853,7 +1023,41 @@ function bool ParseCommand (string Command)
 	{
 		CutError("Command Error:" $ subjectActor.CutErrorString $ " From:" $ string(subjectActor));
 		subjectActor.CutErrorString = "";
+		aErrorCues.AddItem(untilCue);
 	}
+}
+
+// Omega: Helper function for getting cues for bad commands
+function string GetCue(string Command)
+{
+	local int Index;
+	local string untilCue, actionPart;
+
+	actionPart = ParseDelimitedString(Command," ",2,True);
+	Index = InStr(actionPart,"*");
+	
+	if ( Index != -1 )
+	{
+		untilCue = ParseDelimitedString(Mid(actionPart,Index + 1)," ",1,False);
+
+		if ( Len(untilCue) == 0 )
+		{
+			untilCue = GenerateUniqueCue();
+		}
+		actionPart = Left(actionPart,Index);
+	}
+	
+	while ( (Asc(Right(actionPart,1)) == 32) || (Asc(Right(actionPart,1)) == 9) )
+	{
+		actionPart = Left(actionPart,Len(actionPart) - 1);
+	}
+	
+	while ( (Asc(Right(untilCue,1)) == 32) || (Asc(Right(untilCue,1)) == 9) )
+	{
+		untilCue = Left(untilCue,Len(untilCue) - 1);
+	}
+
+	return untilCue;
 }
 
 function bool CutCommand_CameraShake (string Command)
@@ -1009,4 +1213,7 @@ state Finished
 defaultproperties
 {
 	bHidden=True
+
+	// Omega: Test true by default
+	//bAggressivelyRecapture=True
 }

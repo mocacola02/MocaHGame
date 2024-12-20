@@ -1,4 +1,8 @@
 [All]
+M212MenuDollyZoom=Ajuster la distance de la caméra
+M212MenuDollyZoomToolTip=Ajuste la distance de la caméra pour des valeurs de champ de vision plus élevées.
+M212MenuFOV=Champ de vision
+M212MenuFOVToolTip=Ajuste le champ de vision de la caméra pour la plupart des séquences du jeu.
 M212MenuKeyboardLook=Contrôle par les touches fléchées
 M212MenuControllerVibration=Vibration de la manette
 M212MenuFontScale=Mise à l'échelle des polices

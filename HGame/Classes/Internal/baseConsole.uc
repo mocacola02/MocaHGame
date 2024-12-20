@@ -33,6 +33,8 @@ var BackgroundBitmap LoadingBackground;
 */
 
 var Texture LoadingBackground;
+// Omega: Black background:
+var Texture BlackBG;
 
 var bool bLeftKeyDown;
 var bool bRightKeyDown;
@@ -58,6 +60,8 @@ var Font LocalSmallFont;
 var Font LocalIconMessageFont;
 var Font LocalTinyFont;
 var Font IntMedFont;
+
+var(Debugging) bool bForceLoadScreen;	// Omega: Force display of the loading screen
 
 // Metallicafan212:	HP2 shouldn't call this
 event bool ShouldDrawLevelInfo(canvas C, string URL)
@@ -177,24 +181,31 @@ function DrawLevelAction (Canvas C)
 	local float XL;
 	local float YL;
 	
+	// Omega: Used by new scaling stuff
+	local float fScaleFactor;
+	local int xOffset;
+	
 	HScale = GetHScale(C);//Class'M212HScale'.Static.UWindowGetHeightScale(Root);//GetHScale(C);
+	// Omega: Get the scale factor:
+	fScaleFactor = (C.SizeX / 640.0) * HScale;
 	
 	OldColor = C.DrawColor;
 
-	if ( (Viewport.Actor.Level.Pauser != "") && Viewport.Actor.Level.LevelAction == LEVACT_None)
+	if ( (Viewport.Actor.Level.Pauser != "") && Viewport.Actor.Level.LevelAction == LEVACT_None && !bForceLoadScreen)
 	{
 		C.Font = C.MedFont;
 		BigMessage = PausedMessage;
 		PrintActionMessage(C,BigMessage);
 		return;
 	}
-	if ( Viewport.Actor.Level.LevelAction == LEVACT_None )
+	if ( Viewport.Actor.Level.LevelAction == LEVACT_None && !bForceLoadScreen)
 	{
 		BigMessage = "";
 		return;
 	} 
-	else if(Viewport.Actor.Level.LevelAction == LEVACT_Loading || Viewport.Actor.bShowLoadingScreen)
+	else if(Viewport.Actor.Level.LevelAction == LEVACT_Loading || Viewport.Actor.bShowLoadingScreen || bForceLoadScreen)
 	{
+		// Omega: Reworked the function to draw a lot cleaner than before
 		BigMessage = Localize("all","Options_0058","HPMenu");
 		Viewport.Actor.bShowLoadingScreen = True;
 		C.Style = 1;
@@ -216,59 +227,70 @@ function DrawLevelAction (Canvas C)
 		C.DrawColor.G = 128;
 		C.DrawColor.B = 128;
 		
-		// Metallicafan212:	Draw black
-		//DrawStretchedTextureSegment(C, 0.0, 0.0, C.SizeX, C.SizeY, LoadingBackground.USize * 0.5, LoadingBackground.VSize * 0.75, LoadingBackground.USize * 0.5, LoadingBackground.VSize * 0.25, LoadingBackground);
-		
-		C.DrawTileClipped(LoadingBackground, C.SizeX, C.SizeY, LoadingBackground.USize * 0.5, LoadingBackground.VSize * 0.75, LoadingBackground.USize * 0.5, LoadingBackground.VSize * 0.25);
-		
-		//C.DrawTile(LoadingBackground.P1, Root.RealWidth, Root.RealHeight, 0.0, 0.0, LoadingBackground.P1.USize, LoadingBackground.P1.VSize);
-		
+		// Omega: Black tiled BG:
+		C.SetPos(0,0);
+		C.DrawTileClipped(BlackBG, C.SizeX, C.SizeY, 0.0, 0.0, C.SizeX * 2.5, C.SizeY * 2.5);
+
+		// Omega: Test:
+		C.SetPos(0,0);
+
+		// Omega: Now the loading screen texture
 		C.DrawColor = OldColor;
 		
 		// Metallicafan212:	Center the tiles
 		Offset = (128.0 / HScale) - (128.0 * HScale);//256 - (256 * HScale);
-		/*
-		ScaleAndDraw(C, Offset, 					0.0,	LoadingBackground.p1);
-		ScaleAndDraw(C, (256.0 * HScale) + Offset, 	0.0,	LoadingBackground.p2);
-		ScaleAndDraw(C, (512.0 * HScale) + Offset, 	0.0,	LoadingBackground.p3);
-		ScaleAndDraw(C, Offset, 					256.0,	LoadingBackground.p4);
-		ScaleAndDraw(C, (256.0 * HScale) + Offset, 	256.0,	LoadingBackground.p5);
-		ScaleAndDraw(C, (512.0 * HScale) + Offset, 	256.0,	LoadingBackground.p6);
-		*/
 		
-		// Metallicafan212:	One texture
-		//DrawStretchedTextureSegment(C, Offset, 0, 768.0, 512.0, 0.0, 0.0, LoadingBackground.USize * 0.5, LoadingBackground.VSize * 0.75, LoadingBackground);
-		//C.SetPos(Offset, 0);
-		//C.DrawTileClipped(LoadingBackground, 768.0, C.SizeY, LoadingBackground.USize * 0.5, LoadingBackground.VSize * 0.75, LoadingBackground.USize * 0.5, LoadingBackground.VSize * 0.25)
-		
-		DrawStretchedTextureSegment(C, Offset, 0, 768.0, 512.0, 0.0, 0.0, LoadingBackground.USize * 0.75, LoadingBackground.VSize * 0.5, LoadingBackground);//DrawStretchedTexture(C, Offset, 0.0, Tex.USize * FX * HScale, Tex.VSize * FY, Tex);
-		
-		//Offset /= (HScale * 0.75); //Root.GUIScale
+		xOffset = 0;
+
+		AlignXToCenter(C, xOffset);
+
+		C.SetPos(xOffset, 0);
+		C.DrawIcon(LoadingBackground, fScaleFactor);
 		
 		Offset *= Root.GUIScale * 0.7;
+
+		// Omega: Text scaling backup
+		local float OldTextScale;
+		OldTextScale = C.FontScale;
 		
 		// Metallicafan212:	Customly draw the text offset
 		C.bCenter = False;
+
+		C.FontScale *= fScaleFactor;
 		C.StrLen(BigMessage, XL, YL);
 		
-		C.SetPos(((FrameX) / 4.0 - (XL / 2.0)) + Offset, FrameY / 4.5 - YL / 2.0);
+		xOffset = ((C.SizeX) / 4.0)/* + Offset*/;
+
+		AlignXToCenter(C, xOffset);
+
+		xOffset -= (XL / 2.0);
+
+		C.SetPos(xOffset, FrameY / 4.5 - YL / 2.0);
 		C.DrawText(BigMessage, False);
 		
+		C.FontScale = OldTextScale;
+		C.Reset();
+
+		// Omega: Ensure this is actually reset...
+		C.DrawColor.R = 255;
+		C.DrawColor.G = 255;
+		C.DrawColor.B = 255;
+		C.DrawColor.A = 0;
 		return;
 	} 
-	else if ( Viewport.Actor.Level.LevelAction == LEVACT_Saving )
+	else if ( Viewport.Actor.Level.LevelAction == LEVACT_Saving && !bForceLoadScreen)
 	{
 		BigMessage = Localize("all","Options_0057","HPMenu");
 	} 
-	else if ( Viewport.Actor.Level.LevelAction == LEVACT_Connecting )
+	else if ( Viewport.Actor.Level.LevelAction == LEVACT_Connecting && !bForceLoadScreen)
 	{
 		BigMessage = ConnectingMessage;
 	}
-	else if ( Viewport.Actor.Level.LevelAction == LEVACT_Precaching )
+	else if ( Viewport.Actor.Level.LevelAction == LEVACT_Precaching && !bForceLoadScreen)
 	{
 		BigMessage = PrecachingMessage;
 	}
-	if ( BigMessage != "" )
+	if ( BigMessage != "" && !bForceLoadScreen)
 	{
 		C.Style = 1;
 		C.TextSize(BigMessage,fTextWidth,fTextHeight);
@@ -284,6 +306,12 @@ function DrawLevelAction (Canvas C)
 	}
 }
 
+function AlignXToCenter(Canvas Canvas, out int nOutX)
+{
+	//nOutX = (Canvas.SizeX * 0.5) - (((Canvas.SizeX * 0.5) - nOutX) * GetHAdjustedScale(Canvas));
+	nOutX = (Canvas.SizeX * 0.5) - (((Canvas.SizeX * 0.5) - nOutX) * GetHScale(Canvas));
+}
+
 defaultproperties
 {
 	//UTPT didn't decompile the texture paths correctly -AdamJD
@@ -292,6 +320,8 @@ defaultproperties
 	//LoadingBackground=(p1=Texture'HGame.Icons.FELoadingBackground1',p2=Texture'HGame.Icons.FELoadingBackground2',p3=Texture'HGame.Icons.FELoadingBackground3',p4=Texture'HGame.Icons.FELoadingBackground4',p5=Texture'HGame.Icons.FELoadingBackground5',p6=Texture'HGame.Icons.FELoadingBackground6',durration=999999.00)
 	
 	LoadingBackground=Texture'HGame.LoadingScreen.FELoadingScreen'
+	
+	BlackBG=Texture'HGame.FEBook.FEMapBack'
 	
 	// Metallicafan212:	Load the white tex for doing the black background
 

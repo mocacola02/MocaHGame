@@ -528,7 +528,9 @@ function InitSettings (CamSettings CamSet, bool bSyncWithTargetPos, bool bSyncWi
 	bSyncRotationWithTarget = bSyncWithTargetRot;
 	bSyncPositionWithTarget = bSyncWithTargetPos;
 	fDistanceScalarMin = DISTANCE_SCALAR_MIN;
-	fCurrLookAtDistance = CurrentSet.fLookAtDistance;
+	//fCurrLookAtDistance = CurrentSet.fLookAtDistance;
+	// Omega: DOLLY CHANGES
+	fCurrLookAtDistance = DollyZoomDistance(CurrentSet.fLookAtDistance);
 }
 
 function InitTarget (Actor A)
@@ -539,15 +541,16 @@ function InitTarget (Actor A)
 
 function InitPositionAndRotation (bool bSnapToNewPosAndRot)
 {
+	// Omega: DOLLY CHANGES
 	if ( bSnapToNewPosAndRot )
 	{
 		InitRotation(CamTarget.Rotation);
-		InitPosition(CamTarget.Location + ((Vec( -CurrentSet.fLookAtDistance,0.0,0.0)) >> rDestRotation));
+		InitPosition(CamTarget.Location + ((Vec(-DollyZoomDistance(CurrentSet.fLookAtDistance),0.0,0.0)) >> rDestRotation));
 	} 
 	else 
 	{
 		SetDestRotation(CamTarget.Rotation);
-		vDestPosition = CamTarget.Location + ((Vec( -CurrentSet.fLookAtDistance,0.0,0.0)) >> rDestRotation);
+		vDestPosition = CamTarget.Location + ((Vec(-DollyZoomDistance(CurrentSet.fLookAtDistance),0.0,0.0)) >> rDestRotation);
 		CheckCollisionWithWorld();
 	}
 	rDestRotation.Roll = 0;
@@ -569,10 +572,40 @@ function UpdateDistance (float fTimeDelta)
 	{
 		fDestLookAtDistance = CurrentSet.fLookAtDistance;
 	}
+	
+	// Omega: FOV CHANGES
+	// Omega: DOLLY CHANGES
+	// Omega: Calculate a Dolly Zoom for FOV
+	fDestLookAtDistance = DollyZoomDistance(fDestLookAtDistance);
+
+	// Omega: And clamp if need be
+	fCurrLookAtDistance = fClamp(fCurrLookAtDistance, 0.0, fDestLookAtDistance);
+	
 	if ( (fMoveBackTightness > 0.0) && (fCurrLookAtDistance != fDestLookAtDistance) )
 	{
 		fCurrLookAtDistance += (fDestLookAtDistance - fCurrLookAtDistance) * FMin(1.0,fMoveBackTightness * fTimeDelta);
 	}
+}
+
+// Omega: DOLLY CHANGES
+function float DollyZoomDistance(float Distance, optional float CustomFOV)
+{
+	local float OurFOV;
+
+	if(!DollyZoomable())
+	{
+		return Distance;
+	}
+
+	if(CustomFOV == 0)
+	{
+		CustomFOV = PlayerHarry.FOVAngle;
+	}
+
+	// Omega: Calc our FOV to radians
+	OurFOV = (CustomFOV * Pi)/180.0;
+
+	return Distance / (Tan(0.5 * OurFOV));
 }
 
 function UpdateRotationUsingVectors (float fTimeDelta)
@@ -801,6 +834,26 @@ function bool CheckCollisionWithWorld()
 	}
 	return False;
 }
+
+// Omega: Necessary to notify camera of FOV settings change
+function FOVChanged()
+{
+
+}
+
+// Omega: Return if we want FOVControllers or other fov altering classes to return Harry to his desired FOV, or 90 (default)
+function bool SupportFOV()
+{
+	return false;
+}
+
+// Omega: DOLLY CHANGES
+// Omega: Should respond to PlayerHarry.bDollyZoomCamera
+// PlayerHarry.bDollyZoomCamera;
+function bool DollyZoomable()
+{
+	return false;
+}
  
 auto state StateStartup
 {
@@ -831,8 +884,14 @@ state StateTransition
 		InitSettings(CamSetStandard,False,True);
 		InitRotation(PlayerHarry.Rotation);
 		CurrentSet.fMoveTightness = 0.1;
-		vDestPosition = PlayerHarry.Location + CamSetStandard.vLookAtOffset + ((Vec( -CurrentSet.fLookAtDistance,0.0,0.0)) >> rDestRotation);
+		//vDestPosition = PlayerHarry.Location + CamSetStandard.vLookAtOffset + ((Vec( -CurrentSet.fLookAtDistance,0.0,0.0)) >> rDestRotation);
+		
+		// Omega: DOLLY CHANGES
+		vDestPosition = PlayerHarry.Location + CamSetStandard.vLookAtOffset + ((Vec( -DollyZoomDistance(CurrentSet.fLookAtDistance, PlayerHarry.DesiredFOV),0.0,0.0)) >> rDestRotation);
 		PlayerHarry.ClientMessage(" 1 DestRot = " $ string(rDestRotation) $ " CurRot = " $ string(rCurrRotation));
+		
+		// Omega: FOV CHANGES
+		SetFOV(PlayerHarry.DesiredFOV, 1.0, True);
 	}
   
 	function CutBypass()
@@ -843,6 +902,18 @@ state StateTransition
 		DoCutCueNotify();
 		SetCameraMode(CameraModeTransition);
 		Super.CutBypass();
+	}
+	
+	// Omega: FOV CHANGES
+	function bool SupportFOV()
+	{
+		return true;
+	}
+	
+	// Omega: DOLLY CHANGES
+	function bool DollyZoomable()
+	{
+		return PlayerHarry.bDollyZoomCamera;
 	}
   
 	function Tick (float fTimeDelta)
@@ -871,11 +942,33 @@ state StateStandardCam
 		InitSettings(CamSetStandard,True,False);
 		InitTarget(PlayerHarry);
 		InitPositionAndRotation(True);
+		
+		// Omega: FOV CHANGES
+		// Omega: Restore FOV angle
+		PlayerHarry.FOVAngle = PlayerHarry.DesiredFOV;
 	}
   
 	function EndState()
 	{
 		rSavedRotation = rCurrRotation;
+	}
+	
+	// Omega: FOV CHANGES
+	function FOVChanged()
+	{
+		PlayerHarry.FOVAngle = PlayerHarry.DesiredFOV;
+	}
+	
+	// Omega: FOV CHANGES
+	function bool SupportFOV()
+	{
+		return true;
+	}
+	
+	// Omega: DOLLY CHANGES
+	function bool DollyZoomable()
+	{
+		return PlayerHarry.bDollyZoomCamera;
 	}
   
 	function Tick (float fTimeDelta)
@@ -900,6 +993,10 @@ state StateQuidditchCam
 		InitSettings(CamSetQuidditch,True,False);
 		InitTarget(PlayerHarry);
 		InitPositionAndRotation(True);
+		
+		// Omega: FOV CHANGES
+		// Omega: Make the camera zoom in for quid
+		SetFOV(90.0, 0.5, True);
 	}
   
 	function Tick (float fTimeDelta)
@@ -972,6 +1069,10 @@ state StateCutSceneCam
 {
 	function BeginState()
 	{
+		// Omega: FOV CHANGES
+		// Omega: Restore 90.0 Degree angle for cutscenes
+		PlayerHarry.FOVAngle = 90.0;
+		
 		if ( USE_DEBUG_MODE )
 		{
 			PlayerHarry.ClientMessage("Camera: BeginState -> StateCutSceneCam");
@@ -1010,6 +1111,28 @@ state StateBossCam
 		InitSettings(CamSetBoss,True,False);
 		InitTarget(PlayerHarry);
 		InitPositionAndRotation(False);
+		
+		// Omega: FOV CHANGES
+		// Omega: Restore FOV angle
+		PlayerHarry.FOVAngle = PlayerHarry.DesiredFOV;
+	}
+	
+	// Omega: FOV CHANGES
+	function FOVChanged()
+	{
+		PlayerHarry.FOVAngle = PlayerHarry.DesiredFOV;
+	}
+	
+	// Omega: FOV CHANGES
+	function bool SupportFOV()
+	{
+		return true;
+	}
+	
+	// Omega: DOLLY CHANGES
+	function bool DollyZoomable()
+	{
+		return PlayerHarry.bDollyZoomCamera;
 	}
   
 	function Tick (float fTimeDelta)
@@ -1029,6 +1152,20 @@ state StateBossCam
 		rDestRotation = rotator(Normal(V - Location));
 		rDestRotation += rBossRotationOffset;
 		UpdateRotationUsingVectors(fTimeDelta);
+		
+		// Omega: DOLLY CHANGES
+		// Boss cam doesn't actually update the distances, and we now need to
+		// So I am leaving the file in a nicer state than I started editing it in
+		// Essentially ripped from UpdateDistance, but without the pitch scaling
+		fDestLookAtDistance = DollyZoomDistance(CurrentSet.fLookAtDistance);
+		
+		// Omega: And clamp if need be
+		fCurrLookAtDistance = fClamp(fCurrLookAtDistance, 0.0, fDestLookAtDistance);
+		if ( (fMoveBackTightness > 0.0) && (fCurrLookAtDistance != fDestLookAtDistance) )
+		{
+			fCurrLookAtDistance += (fDestLookAtDistance - fCurrLookAtDistance) * FMin(1.0,fMoveBackTightness * fTimeDelta);
+		}
+		
 		UpdatePosition(fTimeDelta);
 	}
 }
@@ -1290,6 +1427,12 @@ function bool CutCommand_ProcessFlash (string Command, optional string cue, opti
 	local float fTime;
 	local int I;
 
+	// Omega: Viewflash patch
+	if(bFastFlag)
+	{
+		CutCue(Cue);
+		return true;
+	}
 	// Metallicafan212:	New engine uses reverse alpha for things like tiles (where alpha was defaulted to 0), so this must be set to 0
 	A = 0.0;//255.0;
 	bUseDefault = True;

@@ -1,4 +1,8 @@
 [All]
+M212MenuDollyZoom=Säädä kameran etäisyyttä
+M212MenuDollyZoomToolTip=Säätää kameran etäisyyttä korkeampien näkökenttäarvojen saamiseksi.
+M212MenuFOV=Näkökentän
+M212MenuFOVToolTip=Asettaa kameran näkökentän useimmille pelin jaksoille.
 M212MenuKeyboardLook=Nuolinäppäinliike
 M212MenuControllerVibration=Ohjaimen värähtely
 M212MenuFontScale=Fontin skaalaus

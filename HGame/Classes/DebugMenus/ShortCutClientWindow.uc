@@ -21,7 +21,7 @@ function Created()
 
 	Super.Created();
 
-	OldParentWidth = ParentWindow.WinWidth;
+	OldParentWidth 	= ParentWindow.WinWidth;
 	OldParentHeight = ParentWindow.WinHeight;
 
 	SetDimensions();
@@ -29,9 +29,11 @@ function Created()
 	SetAcceptsFocus();
 	
 	browser = ShortCutBrowser(CreateWindow(Class'ShortCutBrowser', 0.0, 0.0, WinWidth, WinHeight));
-	browser.AddList("Levels", 		ShortCutListLevels(		CreateWindow(Class'ShortCutListLevels', 	0.0, 16.0, WinWidth, WinHeight - 12)));
-	browser.AddList("Bookmarks", 	ShortCutListBookmarks(	CreateWindow(Class'ShortCutListBookmarks',	0.0, 16.0, WinWidth, WinHeight - 12)));
-	browser.AddList("Sounds",		ShortCutListSounds(		CreateWindow(Class'ShortCutListSounds',		0.0, 16.0, WinWidth, WinHeight - 12)));
+	browser.AddList("Levels", 			ShortCutListLevels(				CreateWindow(Class'ShortCutListLevels', 		0.0, 16.0, WinWidth, WinHeight - 12)));
+	browser.AddList("Bookmarks", 		ShortCutListBookmarks(			CreateWindow(Class'ShortCutListBookmarks',		0.0, 16.0, WinWidth, WinHeight - 12)));
+	browser.AddList("Sounds",			ShortCutListSounds(				CreateWindow(Class'ShortCutListSounds',			0.0, 16.0, WinWidth, WinHeight - 12)));
+	// Omega: Our save's database
+	browser.AddList("String Database",	M212ShortCutListDatabase(		CreateWindow(Class'M212ShortCutListDatabase',	0.0, 16.0, WinWidth, WinHeight - 12)));
 	
 	I = 0;
 	curToken = GetPlayerOwner().GetGameStateMasterListToken(0);
