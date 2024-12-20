@@ -1254,7 +1254,7 @@ function DoStoryBookInterlude (int StoryBookIdx, name EventWhenDone)
 
 defaultproperties
 {
-	MusicToPlay="sm_dia_Ambient02_01.ogg"
+	MusicToPlay="sm_dia_Ambient02_01"
 
 	InGameBackground=(p1=Texture'HGame.Icons.FEInGameBackTexture1',p2=Texture'HGame.Icons.FEInGameBackTexture2',p3=Texture'HGame.Icons.FEInGameBackTexture3',p4=Texture'HGame.Icons.FEInGameBackTexture4',p5=Texture'HGame.Icons.FEInGameBackTexture5',p6=Texture'HGame.Icons.FEInGameBackTexture6',durration=999999.00)
 
