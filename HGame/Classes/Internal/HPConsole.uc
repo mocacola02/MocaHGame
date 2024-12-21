@@ -664,8 +664,10 @@ function StartFastForward()
 	{
 		return;
 	}
-	harry(Viewport.Actor).ClientMessage("*****STARING FASTFORWARD****************************");
-	Log("*****STARING FASTFORWARD****************************");
+	//AdamJD(2024):	Fixed a KW typo
+	harry(Viewport.Actor).ClientMessage("*****STARTING FASTFORWARD****************************");
+	Log("*****STARTING FASTFORWARD****************************");
+	
 	foreach Viewport.Actor.AllActors(Class'CutScene',cut)
 	{
 		if ( cut.bPlaying && cut.bSkipAllowed)
