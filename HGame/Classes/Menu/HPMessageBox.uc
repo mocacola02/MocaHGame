@@ -110,11 +110,26 @@ function Setup (string set_message, string set_button1, optional string set_butt
 {
 	Message = UWindowWrappedTextArea(CreateControl(Class'UWindowWrappedTextArea',26.0,27.0,220.0 - 26,75.0 - 27));
 	Message.Clear();
+
+	// Omega: Make the font readable
+	/*Root.RealWidth / Root.RealHeight */
+	if(Root.RealWidth > 1000)
+	{
+		// Medium font
+		Message.SetFont(2);
+	}
+
 	Message.TextColor.R = 215;
 	Message.TextColor.G = 0;
 	Message.TextColor.B = 215;
 	Message.Align = TA_Center;
 	Message.AddText(set_message);
+	// Omega: Just remove the fucking focus
+	Message.bAcceptsFocus = false;
+	Message.bAcceptsHotKeys = false;
+	Message.bAlwaysBehind = True;
+
+
 	TimeOut = setTimeOut;
 	TimeOutTime = 0.0;
 	FrameCount = 0;
