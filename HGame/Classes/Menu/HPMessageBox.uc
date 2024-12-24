@@ -54,7 +54,7 @@ function Resized()
 	button2.Resized();
 	button2.WinLeft 	= (WinWidth - button2.WinWidth) - (24 * HScale);//138.0 * HScale;
 	
-	Message.WinTop		= 27 * HScale;
+	Message.WinTop		= 27;//* HScale;
 }
 
 function Created()
