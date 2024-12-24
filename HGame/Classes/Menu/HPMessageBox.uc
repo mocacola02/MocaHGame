@@ -113,11 +113,14 @@ function Setup (string set_message, string set_button1, optional string set_butt
 
 	// Omega: Make the font readable
 	/*Root.RealWidth / Root.RealHeight */
-	if(Root.RealWidth > 1000)
+	// Omega: It's too big for smaller screens
+	// probably ought to just implement some kind of 
+	// scaling for it
+	/*if(Root.RealWidth > 1000)
 	{
 		// Medium font
 		Message.SetFont(2);
-	}
+	}*/
 
 	Message.TextColor.R = 215;
 	Message.TextColor.G = 0;
