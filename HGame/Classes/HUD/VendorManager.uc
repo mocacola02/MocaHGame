@@ -75,7 +75,9 @@ var int nLastButtonNo;
 var int nItemsBoughtInCurrTransaction;
 var int nCurrPrice;
 var StatusManager managerStatus;
-var Canvas VendorCanvas;
+// Metallicafan212:	2025, HOLY SHIT guys, what is wrong with you?
+//					This was ANOTHER transient save issue. Canvas is not suppost to be set to actor properties, let alone persistent actors!
+var Transient Canvas VendorCanvas;
 var int I;
 var Characters WeasleyTwin;
 var int nSubtractBeans;
