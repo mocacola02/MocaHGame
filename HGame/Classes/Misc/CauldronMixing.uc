@@ -28,12 +28,34 @@ var Vector vWWellPotionHudLoc;
 var Vector vTopOfCauldron;
 var int nPotionCount;
 var int I;
+
+// Metallicafan212:	Gamestate the pot is enabled on. Default was a const variable for 40
+var() int iGamestateEnabledOn;
+
 var Rotator R;
 var Vector vTargetDir;
 var float fYawChange;
 var() EStartMixOn StartMixOn;
 var() bool bMixingEnabled;
 
+// Metallicafan212:	This fixes the cauldron in Snape's classroom by making sure when we resolve gamestate, that the cauldron is enabled in the right GStates.
+//					If you want to always manually enable mixing, set this to false.
+var() bool bAutoTestGameState;
+
+
+event PreBeginPlay()
+{
+	Super.PreBeginPlay();
+	
+	// Metallicafan212:	Automatically check if we're allowed to mix.
+	if(bAutoTestGameState && !bMixingEnabled)
+	{
+		if(PlayerHarry.iGameState >= iGamestateEnabledOn)
+		{
+			bMixingEnabled = true;
+		}
+	}
+}
 
 event PostBeginPlay()
 {
@@ -57,7 +79,7 @@ event Bump (Actor Other)
   local int nGameState;
 
   nGameState = PlayerHarry.ConvertGameStateToNumber();
-  if ( nGameState < nPOTIONS_AVAILABLE_STATE )
+  if ( nGameState < iGamestateEnabledOn )
   {
     GotoState('CauldronsNotAvailableYet');
   } else //{
@@ -248,5 +270,9 @@ defaultproperties
     CollisionRadius=15.00
 
     CollisionHeight=100.00
+	
+	iGamestateEnabledOn=40
+	
+	bAutoTestGameState=true
 
 }
