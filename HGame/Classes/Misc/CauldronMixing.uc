@@ -61,13 +61,20 @@ event PreBeginPlay()
 	}
 }
 
+// Metallicafan212:	Move it here so we can call upon it to fix it up.
+function InitStatusItems()
+{
+	sgPotionIngr 	= PlayerHarry.managerStatus.GetStatusGroup(Class'StatusGroupPotionIngr');
+	sgPotions 		= PlayerHarry.managerStatus.GetStatusGroup(Class'StatusGroupPotions');
+	siWiggenBark 	= sgPotionIngr.GetStatusItem(Class'StatusItemWiggenBark');
+	siFlobberMucus 	= sgPotionIngr.GetStatusItem(Class'StatusItemFlobberMucus');
+}
+
 event PostBeginPlay()
 {
 	Super.PostBeginPlay();
-	sgPotionIngr = PlayerHarry.managerStatus.GetStatusGroup(Class'StatusGroupPotionIngr');
-	sgPotions = PlayerHarry.managerStatus.GetStatusGroup(Class'StatusGroupPotions');
-	siWiggenBark = sgPotionIngr.GetStatusItem(Class'StatusItemWiggenBark');
-	siFlobberMucus = sgPotionIngr.GetStatusItem(Class'StatusItemFlobberMucus');
+	
+	InitStatusItems();
 }
 
 event Trigger (Actor Other, Pawn EventInstigator)
@@ -161,11 +168,21 @@ function SetCauldronFX (ECauldronFX FX)
 
 function int GetNumPotionsToMake()
 {
+	if(siWiggenBark == none || siFlobberMucus == none)
+	{
+		InitStatusItems();
+	}
+	
 	return Min(siWiggenBark.nCount,siFlobberMucus.nCount);
 }
 
 function bool HaveWiggenPotionIngredients()
 {
+	if(siWiggenBark == none || siFlobberMucus == none)
+	{
+		InitStatusItems();
+	}
+	
 	return (siWiggenBark.nCount >= 1) && (siFlobberMucus.nCount >= 1);
 }
 
