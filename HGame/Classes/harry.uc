@@ -310,6 +310,9 @@ var int iMinHealthAfterDeath;
 var travel string strObjectiveIntFile;
 var travel string strObjectiveSection;
 
+// Omega: Cached gamestate number to avoid having to convert a string all the time
+var int iGameState;
+
 event PreBeginPlay()
 {
 	Super.PreBeginPlay();
@@ -953,6 +956,9 @@ event TravelPostAccept()
     local bool bFoundSmartStart;
 
 	Super.TravelPostAccept();
+	
+	iGamestate = ConvertGameStateToNumber();
+	
 	Log("weapon is" $ string(Weapon));
 	if ( Inventory == None )
 	{
@@ -5610,19 +5616,20 @@ function bool CutCommand (string Command, optional string cue, optional bool bFa
 
 function bool SetGameState (string strNewGameState)
 {
-  local bool bRet;
-  local int nNewGameState;
-
-  bRet = Super.SetGameState(strNewGameState);
-  if ( bRet )
-  {
-    nNewGameState = ConvertGameStateToNumber();
-    if ( nNewGameState >= 180 )
-    {
-      StatusGroupWizardCards(managerStatus.GetStatusGroup(Class'StatusGroupWizardCards')).AssignAllSilverToVendors();
-    }
-  }
-  return bRet;
+	local bool bRet;
+	local int nNewGameState;
+	
+	bRet = Super.SetGameState(strNewGameState);
+	if ( bRet )
+	{
+		nNewGameState = ConvertGameStateToNumber();
+		iGameState = nNewGameState;
+		if ( nNewGameState >= 180 )
+		{
+			StatusGroupWizardCards(managerStatus.GetStatusGroup(Class'StatusGroupWizardCards')).AssignAllSilverToVendors();
+		}
+	}
+	return bRet;
 }
 
 function SendPlayerCaptureMessages (bool bCapture)
