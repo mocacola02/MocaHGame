@@ -6286,6 +6286,13 @@ event ViewFlash (float DeltaTime)
   Super.ViewFlash(DeltaTime);
 }
 
+// Omega: Notification for having a controller get plugged in
+// ported from Cruciatus Child, but nothing here uses it yet
+function ControllerPluggedIn(bool bUsingController)
+{
+	
+}
+
 defaultproperties
 {
     bAutoCenterCamera=True

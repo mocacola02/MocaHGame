@@ -115,7 +115,7 @@ function DrawItem (Canvas Canvas, int nCurrX, int nCurrY, float fScaleFactor)
 	nX = 5 * fScaleFactor + nCurrX;
 	nY = 5 * fScaleFactor + nCurrY;
 	// And align the X now
-	sgParent.AlignElement(Canvas, nX);
+	//sgParent.AlignElement(Canvas, nX);
 	
 	fSegmentHeight = 0.0;
 	fSegmentStartAt = 0.0;

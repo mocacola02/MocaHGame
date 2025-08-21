@@ -36,6 +36,11 @@ var bool bVendorBar;
 // Omega: Whether we can do menu switching at the moment
 var bool bLockMenus;
 
+// Omega: So we can detect controller keys:
+var		Array<int>			ControllerKeys;
+// Omega: True if the key we're sending an event for is a controller, false for keyboard
+var 	bool 				bIsUsingController;
+var 	bool 				bLastUsingController;	// To track when we need to tell Harry about it
 
 exec function DestroyClass (string Input)
 {
@@ -44,7 +49,7 @@ exec function DestroyClass (string Input)
 
 exec function ListGroups()
 {
-  harry(Viewport.Actor).ListGroups();
+  	harry(Viewport.Actor).ListGroups();
 }
 
 exec function ShortCut()
@@ -147,7 +152,7 @@ exec function Lumos_Debug()
 
 exec function Wand_Debug (bool bInput)
 {
-  baseWand(harry(Viewport.Actor).Weapon).SetDebugMode(bInput);
+  	baseWand(harry(Viewport.Actor).Weapon).SetDebugMode(bInput);
 }
 
 exec function SpellCursor_Debug (bool bInput)
@@ -506,33 +511,33 @@ exec function ArtTest()
 
 exec function ShowTimer (bool bShow)
 {
-  local CountdownTimerManager TimerManager;
+	local CountdownTimerManager TimerManager;
 
-  foreach Viewport.Actor.AllActors(Class'CountdownTimerManager',TimerManager)
-  {
-    TimerManager.bShowNumericTime = bShow;
-  }
+	foreach Viewport.Actor.AllActors(Class'CountdownTimerManager',TimerManager)
+	{
+		TimerManager.bShowNumericTime = bShow;
+	}
 }
 
 exec function DrawScale (float fScale)
 {
-  harry(Viewport.Actor).DrawScale = fScale;
+	harry(Viewport.Actor).DrawScale = fScale;
 }
 
 exec function Fatness (int iFatness)
 {
-  harry(Viewport.Actor).Fatness = iFatness;
+	harry(Viewport.Actor).Fatness = iFatness;
 }
 
 exec function Opacity (float fOpacity)
 {
-  harry(Viewport.Actor).Opacity = fOpacity;
+	harry(Viewport.Actor).Opacity = fOpacity;
 }
 
 exec function GoyleMode()
 {
-  harry(Viewport.Actor).bIsGoyle =  !harry(Viewport.Actor).bIsGoyle;
-  harry(Viewport.Actor).SetNewMesh();
+	harry(Viewport.Actor).bIsGoyle =  !harry(Viewport.Actor).bIsGoyle;
+	harry(Viewport.Actor).SetNewMesh();
 }
 
 exec function FPSMode()
@@ -574,23 +579,23 @@ exec function DuelingMode()
 
 function ToggleDebugMode()
 {
-  if (  !Class'Version'.Default.bDebugEnabled )
-  {
-    return;
-  }
-  bDebugMode =  !bDebugMode;
+	if (  !Class'Version'.Default.bDebugEnabled )
+	{
+		return;
+	}
+	bDebugMode =  !bDebugMode;
 }
 
 function SaveSelectedSlot()
 {
-  harry(Viewport.Actor).SloMo(1.0);
-  menuBook.SaveSelectedSlot();
+	harry(Viewport.Actor).SloMo(1.0);
+	menuBook.SaveSelectedSlot();
 }
 
 function LoadSelectedSlot()
 {
-  menuBook.LoadSelectedSlot();
-  harry(Viewport.Actor).SloMo(1.0);
+	menuBook.LoadSelectedSlot();
+	harry(Viewport.Actor).SloMo(1.0);
 }
 
 function ShowConsole()
@@ -614,7 +619,7 @@ function HideConsole()
 	{
 		ConsoleWindow.HideWindow();
 	}
-  
+	
 	// Omega: Added to prevent closing the console from getting the mouse stuck on-screen, requiring an F4 press
 	if(!Root.bUWindowActive)
 	{
@@ -631,16 +636,24 @@ function ChangeLevel (string lev, bool flag)
 
 function LaunchUWindow (optional bool bPause)
 {
-  Super.LaunchUWindow(bPause);
+  	Super.LaunchUWindow(bPause);
 }
 
 function CloseUWindow()
 {
-  Super.CloseUWindow();
+  	Super.CloseUWindow();
 }
 
 event Tick (float Delta)
 {
+	// Omega: Check if we're actively using a controller
+	if(bLastUsingController != bIsUsingController)
+	{
+		harry(Viewport.Actor).ControllerPluggedIn(bIsUsingController);
+	}
+
+	bLastUsingController = bIsUsingController;
+
 	if ( firstRun == False )
 	{
 		LaunchUWindow();
@@ -680,100 +693,100 @@ function StartFastForward()
 
 function HandleFastForward()
 {
-  local CutScene cut;
-  local bool bStillFastForwarding;
-  local int Count;
+	local CutScene cut;
+	local bool bStillFastForwarding;
+	local int Count;
 
-  if (  !bFastForwarding )
-  {
-    return;
-  }
-  bStillFastForwarding = False;
-  Count = 0;
-  foreach Viewport.Actor.AllActors(Class'CutScene',cut)
-  {
-    if ( cut.bFastForwarding )
-    {
-      bStillFastForwarding = True;
-      Count++;
-    }
-  }
-  if (  !bStillFastForwarding )
-  {
-    bFastForwarding = False;
-    harry(Viewport.Actor).SloMo(1.0);
-    Log("*****FINISHED FASTFORWARD****************************");
-    harry(Viewport.Actor).ClientMessage("*****FINISHED FASTFORWARD****************************");
-    HPHud(harry(Viewport.Actor).myHUD).managerCutScene.SetCutCommentText("");
-    HPHud(harry(Viewport.Actor).myHUD).managerCutScene.bShowFF = False;
-    HPHud(harry(Viewport.Actor).myHUD).managerCutScene.SetText("",0.01);
-    harry(Viewport.Actor).bForceBlackScreen = False;
-    harry(Viewport.Actor).ViewFlash(0.1);
-    ConsoleCommand("UNMUTESOUNDS");
-  } 
-  else 
-  {
-    if ( CutSkippingString == "" )
-    {
-      CutSkippingString = Localize("all","SkipCS_0001","HPMenu");
-    }
-    HPHud(harry(Viewport.Actor).myHUD).managerCutScene.SetCutCommentText(CutSkippingString);
-    HPHud(harry(Viewport.Actor).myHUD).managerCutScene.bShowFF = True;
-    HPHud(harry(Viewport.Actor).myHUD).managerCutScene.SetText("",2.0);
-    harry(Viewport.Actor).bForceBlackScreen = True;
-    harry(Viewport.Actor).ViewFlash(0.1);
-    ConsoleCommand("MUTESOUNDS");
-  }
+	if (  !bFastForwarding )
+	{
+		return;
+	}
+	bStillFastForwarding = False;
+	Count = 0;
+	foreach Viewport.Actor.AllActors(Class'CutScene',cut)
+	{
+		if ( cut.bFastForwarding )
+		{
+			bStillFastForwarding = True;
+			Count++;
+		}
+	}
+	if (  !bStillFastForwarding )
+	{
+		bFastForwarding = False;
+		harry(Viewport.Actor).SloMo(1.0);
+		Log("*****FINISHED FASTFORWARD****************************");
+		harry(Viewport.Actor).ClientMessage("*****FINISHED FASTFORWARD****************************");
+		HPHud(harry(Viewport.Actor).myHUD).managerCutScene.SetCutCommentText("");
+		HPHud(harry(Viewport.Actor).myHUD).managerCutScene.bShowFF = False;
+		HPHud(harry(Viewport.Actor).myHUD).managerCutScene.SetText("",0.01);
+		harry(Viewport.Actor).bForceBlackScreen = False;
+		harry(Viewport.Actor).ViewFlash(0.1);
+		ConsoleCommand("UNMUTESOUNDS");
+	} 
+	else 
+	{
+		if ( CutSkippingString == "" )
+		{
+			CutSkippingString = Localize("all","SkipCS_0001","HPMenu");
+		}
+		HPHud(harry(Viewport.Actor).myHUD).managerCutScene.SetCutCommentText(CutSkippingString);
+		HPHud(harry(Viewport.Actor).myHUD).managerCutScene.bShowFF = True;
+		HPHud(harry(Viewport.Actor).myHUD).managerCutScene.SetText("",2.0);
+		harry(Viewport.Actor).bForceBlackScreen = True;
+		harry(Viewport.Actor).ViewFlash(0.1);
+		ConsoleCommand("MUTESOUNDS");
+	}
 }
 
 function doLevelSave (int I)
 {
-  local string savePauser;
-  local PlayerPawn PlayerPawn;
-  local GameSaveInfo GameSaveInfo;
-  local int N;
-  local int savePointID;
+	local string savePauser;
+	local PlayerPawn PlayerPawn;
+	local GameSaveInfo GameSaveInfo;
+	local int N;
+	local int savePointID;
 
-  harry(Viewport.Actor).SloMo(1.0);
-  PlayerPawn = Viewport.Actor;
-  savePauser = PlayerPawn.Level.Pauser;
-  PlayerPawn.Level.Pauser = "";
-  PlayerPawn.SaveGame();
-  PlayerPawn.Level.Pauser = savePauser;
-  GameSaveInfo = new class'GameSaveInfo';
-  N = InStr(PlayerPawn.Level.LevelEnterText,".");
-  if ( N == -1 )
-  {
-    GameSaveInfo.currentLevelString = PlayerPawn.Level.LevelEnterText;
-  } 
-  else 
-  {
-    GameSaveInfo.currentLevelString = Left(PlayerPawn.Level.LevelEnterText,N);
-  }
-  Log("LevelSave: Level Name is" $ GameSaveInfo.currentLevelString);
-  savePointID = -1;
-  savePointID = harry(Viewport.Actor).FindNearestSavePointID();
-  Log("Found Savepoint ID = " $ string(savePointID));
-  GameSaveInfo.savePointID = savePointID;
-  PlayerPawn.SaveGameSaveInfo("GameSaveInfo" $ string(I),GameSaveInfo);
+	harry(Viewport.Actor).SloMo(1.0);
+	PlayerPawn = Viewport.Actor;
+	savePauser = PlayerPawn.Level.Pauser;
+	PlayerPawn.Level.Pauser = "";
+	PlayerPawn.SaveGame();
+	PlayerPawn.Level.Pauser = savePauser;
+	GameSaveInfo = new class'GameSaveInfo';
+	N = InStr(PlayerPawn.Level.LevelEnterText,".");
+	if ( N == -1 )
+	{
+		GameSaveInfo.currentLevelString = PlayerPawn.Level.LevelEnterText;
+	} 
+	else 
+	{
+		GameSaveInfo.currentLevelString = Left(PlayerPawn.Level.LevelEnterText,N);
+	}
+	Log("LevelSave: Level Name is" $ GameSaveInfo.currentLevelString);
+	savePointID = -1;
+	savePointID = harry(Viewport.Actor).FindNearestSavePointID();
+	Log("Found Savepoint ID = " $ string(savePointID));
+	GameSaveInfo.savePointID = savePointID;
+	PlayerPawn.SaveGameSaveInfo("GameSaveInfo" $ string(I),GameSaveInfo);
 }
 
 exec function LangBrowser()
 {
-  menuBook.OpenBook("Lang");
+  	menuBook.OpenBook("Lang");
 }
 
 function DrawE3DemoLockout (Canvas Canvas)
 {
-  local float W;
-  local float H;
-  local Font saveFont;
+	local float W;
+	local float H;
+	local Font saveFont;
 
-  saveFont = Canvas.Font;
-  Canvas.Font = Root.Fonts[0];
-  Canvas.SetPos(10.0,460.0);
-  Canvas.DrawText("Locked");
-  Canvas.Font = saveFont;
+	saveFont = Canvas.Font;
+	Canvas.Font = Root.Fonts[0];
+	Canvas.SetPos(10.0,460.0);
+	Canvas.DrawText("Locked");
+	Canvas.Font = saveFont;
 }
 
 state UWindow
@@ -827,6 +840,14 @@ state UWindow
 					switch (k)
 					{
 						case IK_F4:
+							// Omega: Don't allow if menus are locked
+							// technically we should just also do this if debug isn't on but the bugs are funny
+							// and I want to troll people
+							if(bLockMenus || !MenuBook.EffFour())
+							{
+								return true;
+								break;
+							}
 							SCWindow.Close();
 							CloseUWindow();
 							break;
@@ -876,18 +897,47 @@ exec function AllowedInMenus ToggleMapMenu()
 	menuBook.ToggleMap();
 }
 
+exec function AllowedInMenus ToggleMenuPage(String Name)
+{
+	if(bLockMenus)
+	{
+		return;
+	}
+
+	menuBook.OpenPage(Name);
+}
+
+exec function AllowedInMenus ToggleUnlockedMenuPage(String Name)
+{
+	menuBook.OpenPage(Name);
+}
+
+exec function AllowedInMenus ToggleUnpausedMenuPage(String Name)
+{
+	if(bLockMenus)
+	{
+		return;
+	}
+
+	menuBook.OpenPageWithoutPause(Name);
+}
+
+exec function AllowedInMenus ToggleUnlockedUnpausedMenuPage(String Name)
+{
+	menuBook.OpenPageWithoutPause(Name);
+}
 function ExitFromGame()
 {
-  menuBook.ExitFromGame();
+  	menuBook.ExitFromGame();
 }
 
 function WarpHarryToCameraLocation()
 {
-  local Rotator Rot;
+	local Rotator Rot;
 
-  harry(Viewport.Actor).GotoLocation(harry(Viewport.Actor).Cam.Location);
-  Rot.Yaw = harry(Viewport.Actor).Cam.Rotation.Yaw;
-  harry(Viewport.Actor).SetRotation(Rot);
+	harry(Viewport.Actor).GotoLocation(harry(Viewport.Actor).Cam.Location);
+	Rot.Yaw = harry(Viewport.Actor).Cam.Rotation.Yaw;
+	harry(Viewport.Actor).SetRotation(Rot);
 }
 
 event bool KeyEvent (EInputKey Key, EInputAction Action, float Delta)
@@ -905,6 +955,15 @@ event bool KeyEvent (EInputKey Key, EInputAction Action, float Delta)
 	//	log(bLeftKeyDown);
 	//}
 	
+	// Omega: Check if we're actively using a controller or not
+	if(ControllerKeys.Contains(Key))
+	{
+		bIsUsingController = True;
+	}
+	else
+	{
+		bIsUsingController = False;
+	}
 
 	if(Action == IST_Press && int(key) == ConsoleKey)
 	{
@@ -1103,7 +1162,8 @@ event bool KeyEvent (EInputKey Key, EInputAction Action, float Delta)
 						break;	
 				}
 			}
-		case IST_Press:	
+			break;
+		case IST_Press:		
 			if ( harry(Viewport.Actor) != None )
 			{
 				switch(Key)
@@ -1197,7 +1257,8 @@ event bool KeyEvent (EInputKey Key, EInputAction Action, float Delta)
 					bBoostKeyPressed = True;
 					break;
 				case IK_F4:
-					if ( bDebugMode )
+					// Omega: Don't allow when menus are locked
+					if ( bDebugMode && !bLockMenus )
 					{
 						LaunchUWindow();
 						ShortCut();
@@ -1399,30 +1460,30 @@ function SetupLanguage()
 	}
 }
 
-event PostRender (Canvas Canvas)
+function PostRender (Canvas Canvas)
 {
-  local LevelInfo lev;
+	local LevelInfo lev;
 
-  Super.PostRender(Canvas);
-  if ( Root != None )
-  {
-    if ( menuBook.bIsOpen || bShowCutConsole || bVendorBar )
-    {
-      RenderUWindow(Canvas);
-    }
-  }
-  if ( bShowPos )
-  {
-    Canvas.DrawColor.R = 255;
-    Canvas.DrawColor.G = 255;
-    Canvas.DrawColor.B = 255;
-    Canvas.SetPos(Canvas.SizeX - 200,Canvas.SizeY - 40);
-	Canvas.DrawText("Player @ "$int(Viewport.Actor.Location.X) $", "$int(Viewport.Actor.Location.Y) $", "$int(Viewport.Actor.Location.Z));
-  }
-  if(Harry(Viewport.Actor).bE3DemoLockout)
-  {
-	DrawE3DemoLockout(Canvas);
-  }
+	Super.PostRender(Canvas);
+	if ( Root != None )
+	{
+		if ( menuBook.bIsOpen || bShowCutConsole || bVendorBar )
+		{
+			RenderUWindow(Canvas);
+		}
+	}
+	if ( bShowPos )
+	{
+		Canvas.DrawColor.R = 255;
+		Canvas.DrawColor.G = 255;
+		Canvas.DrawColor.B = 255;
+		Canvas.SetPos(Canvas.SizeX - 200,Canvas.SizeY - 40);
+		Canvas.DrawText("Player @ "$int(Viewport.Actor.Location.X) $", "$int(Viewport.Actor.Location.Y) $", "$int(Viewport.Actor.Location.Z));
+	}
+	if(Harry(Viewport.Actor).bE3DemoLockout)
+	{
+		DrawE3DemoLockout(Canvas);
+	}
 }
 
 function RenderUWindow (Canvas Canvas)
@@ -1530,75 +1591,76 @@ function RenderUWindow (Canvas Canvas)
 	}
 }
 
+// Omega: Is this even used?
 event DrawLevelInfo (Canvas C, string URL)
 {
-  local float SizeX;
-  local float SizeY;
-  //local string Index;
-  local string sIndex;
-  local string Text;
-  local int Dot;
-  local int cards;
-  local int secrets;
+	local float SizeX;
+	local float SizeY;
+	//local string Index;
+	local string sIndex;
+	local string Text;
+	local int Dot;
+	local int cards;
+	local int secrets;
 
-  SizeX = 256.0 * FrameX / 640.0;
-  SizeY = 256.0 * FrameY / 480.0;
-  Dot = InStr(URL,".");
-  if ( Dot >= 0 )
-  {
-    URL = Left(URL,Dot);
-  }
-  Log("NextURL = " $ URL);
-  C.bCenter = True;
-  C.OrgX = FrameX * 0.15;
-  C.ClipX = FrameX * 0.69999999;
-  C.DrawColor.R = 0;
-  C.DrawColor.G = 0;
-  C.DrawColor.B = 0;
-  sIndex = Localize("text","n_" $ URL,"Dobby");
-  Text = Localize("text","level_name_" $ sIndex,"HGame");
-  if ( Left(Text,1) != "<" )
-  {
-    C.CurX = FrameX * 0.34999999;
-    C.CurY = FrameY * 0.25;
-    C.Font = LocalBigFont;
-    C.DrawText(Text);
-  }
-  Text = Localize("text","objective_" $ sIndex,"HGame");
-  if ( Left(Text,1) != "<" )
-  {
-    C.CurX = FrameX * 0.34999999;
-    C.CurY = FrameY * 0.5;
-    C.Font = LocalMedFont;
-    C.DrawText(Text);
-  }
-  if ( bInHubFlow )
-  {
-    Text = Localize("text","secret_" $ URL,"Dobby");
-    cards = int(Left(Text,1));
-    secrets = int(Mid(Text,2,1));
-    C.Font = LocalSmallFont;
-    C.CurY = FrameY * 0.69999999;
-    if ( cards > 0 )
-    {
-      C.CurX = FrameX * 0.34999999;
-      Text = Localize("all","find_wizard_text_0" $ cards,"Pickup");
-      if ( Left(Text,1) != "<" )
-      {
-        C.DrawText(Text);
-      }
-      C.CurY = FrameY * 0.75;
-    }
-    if ( secrets > 0 )
-    {
-      C.CurX = FrameX * 0.34999999;
-      Text = Localize("all","find_secret_text_0" $ secrets,"Pickup");
-      if ( Left(Text,1) != "<" )
-      {
-        C.DrawText(Text);
-      }
-    }
-  }
+	SizeX = 256.0 * FrameX / 640.0;
+	SizeY = 256.0 * FrameY / 480.0;
+	Dot = InStr(URL,".");
+	if ( Dot >= 0 )
+	{
+		URL = Left(URL,Dot);
+	}
+	Log("NextURL = " $ URL);
+	C.bCenter = True;
+	C.OrgX = FrameX * 0.15;
+	C.ClipX = FrameX * 0.69999999;
+	C.DrawColor.R = 0;
+	C.DrawColor.G = 0;
+	C.DrawColor.B = 0;
+	sIndex = Localize("text","n_" $ URL,"Dobby");
+	Text = Localize("text","level_name_" $ sIndex,"HGame");
+	if ( Left(Text,1) != "<" )
+	{
+		C.CurX = FrameX * 0.34999999;
+		C.CurY = FrameY * 0.25;
+		C.Font = LocalBigFont;
+		C.DrawText(Text);
+	}
+	Text = Localize("text","objective_" $ sIndex,"HGame");
+	if ( Left(Text,1) != "<" )
+	{
+		C.CurX = FrameX * 0.34999999;
+		C.CurY = FrameY * 0.5;
+		C.Font = LocalMedFont;
+		C.DrawText(Text);
+	}
+	if ( bInHubFlow )
+	{
+		Text = Localize("text","secret_" $ URL,"Dobby");
+		cards = int(Left(Text,1));
+		secrets = int(Mid(Text,2,1));
+		C.Font = LocalSmallFont;
+		C.CurY = FrameY * 0.69999999;
+		if ( cards > 0 )
+		{
+			C.CurX = FrameX * 0.34999999;
+			Text = Localize("all","find_wizard_text_0" $ cards,"Pickup");
+			if ( Left(Text,1) != "<" )
+			{
+				C.DrawText(Text);
+			}
+			C.CurY = FrameY * 0.75;
+		}
+		if ( secrets > 0 )
+		{
+			C.CurX = FrameX * 0.34999999;
+			Text = Localize("all","find_secret_text_0" $ secrets,"Pickup");
+			if ( Left(Text,1) != "<" )
+			{
+				C.DrawText(Text);
+			}
+		}
+	}
 }
 
 defaultproperties
@@ -1614,4 +1676,31 @@ defaultproperties
     PausedMessage="PRESS ESC TO EXIT"
 
     PrecachingMessage="ENTERING"
+		
+	// Omega: XInput variables: See variable definition to match this list with the actual inputs
+	ControllerKeys(0)=200
+	ControllerKeys(1)=201
+	ControllerKeys(2)=202
+	ControllerKeys(3)=203
+	ControllerKeys(4)=204
+	ControllerKeys(5)=205
+	ControllerKeys(6)=206
+	ControllerKeys(7)=207
+	ControllerKeys(8)=208
+	ControllerKeys(9)=209
+	ControllerKeys(10)=210
+	ControllerKeys(11)=211
+	ControllerKeys(12)=212
+	ControllerKeys(13)=213
+	ControllerKeys(14)=214
+	ControllerKeys(15)=215
+	ControllerKeys(16)=224
+	ControllerKeys(17)=225
+	ControllerKeys(18)=226
+	ControllerKeys(19)=227
+	ControllerKeys(20)=232
+	ControllerKeys(21)=233
+	ControllerKeys(22)=240
+	ControllerKeys(23)=241
+	ControllerKeys(24)=243
 }

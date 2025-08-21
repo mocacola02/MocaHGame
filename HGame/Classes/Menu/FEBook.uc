@@ -126,6 +126,10 @@ var DemoAdDialog DemoAd;
 // Omega: Redefinable music:
 var String MusicToPlay;
 
+// Omega: Custom page data
+var array<baseFEPage> CustomPages;
+var array<string> CustomPageClasses;
+
 function SaveSelectedSlot()
 {
 }
@@ -349,53 +353,68 @@ function ChangePagePrevious()
 
 function ChangePageNamed (string Name)
 {
+	ChangePage(ReturnCustomPage(Name));
+}
+
+
+// Omega: Reimplement named pages in a way that makes more sense
+// I mean it's still not great because there's a lot of hardcoded ones from stock
+// But at least new ones can benefit
+function baseFEPage ReturnCustomPage(String Name)
+{
+	local int i;
+
 	switch (Caps(Name))
 	{
 		case "MAIN":
-			ChangePage(MainPage);
+			Return MainPage;
 			break;
 		case "INPUT":
-			Log("changepagenamed input");
-			ChangePage(InputPage);
+			Return InputPage;
 			break;
 		case "SOUNDVIDEO":
-			Log("changepagenamed soundvideo");
-			ChangePage(SoundVideoPage);
+			Return SoundVideoPage;
 			break;
 		case "LANG":
 		case "LANGUAGE":
-			ChangePage(LangPage);
+			Return LangPage;
 			break;
 		case "INGAME":
-			ChangePage(InGamePage);
+			Return InGamePage;
 			break;
 		case "FOLIO":
-			Log("changepagenamed folio");
-			ChangePage(FolioPage);
+			Return FolioPage;
 			break;
 		case "MAP":
-			ChangePage(MapPage);
+			Return MapPage;
 			break;
 		case "QUID":
 		case "QUIDDITCH":
-			ChangePage(QuidPage);
+			Return QuidPage;
 			break;
 		case "DUEL":
-			ChangePage(DuelPage);
+			Return DuelPage;
 			break;
 		case "HPOINTS":
-			ChangePage(HousepointsPage);
+			Return HousepointsPage;
 			break;
 		case "CHALLENGES":
-			ChangePage(ChallengesPage);
+			Return ChallengesPage;
 			break;
 		case "CREDITSPAGE":
-			ChangePage(CreditsPage);
-			break;
-		default:
-			Log("UnknownPage in FEBook: " $ Name);
+			Return CreditsPage;
 			break;
 	}
+
+	for(i = 0; i < CustomPages.Length; i++)
+	{
+		if(CustomPages[i].PageName ~= Name)
+		{
+			return CustomPages[i];
+		}
+	}
+
+	Log("UnknownPage in FEBook: " $ Name);
 }
 
 event Tick (float Delta)
@@ -433,6 +452,7 @@ function Created()
 	local int I;
 	local Texture tempTexture;
 	local LevelInfo lev;
+	local baseFEPage PageTemp;
 
 	Super.Created();
 	bNewGame 	= False;
@@ -484,6 +504,9 @@ function Created()
 	LangPage = baseFEPage(CreateWindow(Class'FESoundBrowser',0.0, 0.0, WinWidth, WinHeight));
 	LangPage.book = self;
 	LangPage.HideWindow();
+
+	LoadCustomClasses();
+
 	lev = GetLevel();
 	if ( InStr(Caps(lev.GetLocalURL()),"AUTOPLAY") >= 0 )
 	{
@@ -535,6 +558,54 @@ function Created()
 	ChallengesPage.RepositionChildControls();
 	curPage.RepositionChildControls();
 	prevPage.RepositionChildControls();
+
+	// Omega: Come up with some kind of custom menu registration later
+	for(i = 0; i < CustomPages.Length; i++)
+	{
+		CustomPages[i].ResolutionChanged(Root.RealWidth, Root.RealHeight);
+		CustomPages[i].RepositionChildControls();
+	}
+}
+
+// Omega: Create our custom page:
+function baseFEPage CreatePage(Class<baseFEPage> PageClass, Optional string PageName)
+{
+	local baseFEPage Ret;
+
+	Ret = baseFEPage(CreateWindow(PageClass, 0.0, 0.0, WinWidth, WinHeight));
+
+	if(Ret == None)
+	{
+		Log("Failed to make page: " $PageClass);
+		return None;
+	}
+
+	Ret.book = self;
+	Ret.HideWindow();
+
+	if(PageName != "")
+	{
+		Ret.PageName = PageName;
+	}
+
+	CustomPages.AddItem(Ret);
+	ret.ResolutionChanged(Root.RealWidth, Root.RealHeight);
+	ret.RepositionChildControls();
+
+	return Ret;
+}
+
+// Omega: Figure out a good way to autoload mod menus sometime?
+function LoadCustomClasses()
+{
+	local int i;
+	local baseFEPage PageTemp;
+
+	// Omega: Support a list of custom pages from string
+	for(i = 0; i < CustomPageClasses.Length; i++)
+	{
+		PageTemp = CreatePage(Class<baseFEPage>(DynamicLoadObject(CustomPageClasses[i], Class'Class', True)));
+	}
 }
 
 function ScaleAndDraw (Canvas Canvas, float X, float Y, Texture Tex)
@@ -636,12 +707,10 @@ function Paint (Canvas Canvas, float X, float Y)
 		{
 			Canvas.DrawTileClipped(FEBackground, Canvas.SizeX, Canvas.SizeY, 0.0, 0.0, Canvas.SizeX * 2.5, Canvas.SizeY * 2.5);
 		}
-		else
-		if(bShowMapBack)
+		else if(bShowMapBack)
 		{
 			Canvas.DrawTileClipped(FEMapBackground, Canvas.SizeX, Canvas.SizeY, 0.0, 0.0, Canvas.SizeX * 2.5, Canvas.SizeY * 2.5);
 		}
-		
 		
 		// Metallicafan212:	We need to scale the pos to the middle of the screen
 		if(FEMid != none)
@@ -674,8 +743,7 @@ function Paint (Canvas Canvas, float X, float Y)
 	// Metallicafan212:	Render on top the background fill layer
 	if(CurPage.ExBackLayering != None)
 		CurPage.ExBackLayering.static.AfterBackgroundLayer(Canvas, CurPage);
-		
-	// Metallicafan212:	Fix UV clamping issues
+	
 	Canvas.bNoUVClamp = false;
 	
 	if(bShowMainBack)
@@ -717,9 +785,10 @@ function Paint (Canvas Canvas, float X, float Y)
 	if(CurPage.ExBackLayering != None)
 		CurPage.ExBackLayering.static.AfterLayering(Canvas, CurPage);
 	
-	//Canvas.bNoUVClamp = false;
+	Canvas.bNoUVClamp = false;
 	
-	if ( bShowBackground )
+	// Omega: Don't even bother with this, I didn't realize this was still in here lol
+	/*if ( bShowBackground )
 	{
 		ScaleAndDraw(Canvas,0.0,0.0,curBackground.p1);
 		ScaleAndDraw(Canvas,256.0,0.0,curBackground.p2);
@@ -727,7 +796,7 @@ function Paint (Canvas Canvas, float X, float Y)
 		ScaleAndDraw(Canvas,0.0,256.0,curBackground.p4);
 		ScaleAndDraw(Canvas,256.0,256.0,curBackground.p5);
 		ScaleAndDraw(Canvas,512.0,256.0,curBackground.p6);
-	}
+	}*/
 }
 
 function DrawStretchedTextureSegment( Canvas C, float X, float Y, float W, float H, 
@@ -759,7 +828,7 @@ function DrawStretchedTextureSegment( Canvas C, float X, float Y, float W, float
 }
 
 // Omega: Stock version
-function OpenBook (optional string pageName)
+function OpenBook (optional string pageName, optional baseFEPage Page)
 {
 	if ( HPConsole(Root.Console).bLocked )
 	{
@@ -769,16 +838,26 @@ function OpenBook (optional string pageName)
 	harry(HPConsole(Root.Console).Viewport.Actor).StopAiming();
 	HPConsole(Root.Console).LaunchUWindow();
 	bIsOpen = True;
+
+	if(Page != None)
+	{
+		ChangePage(Page);
+	}
+	else
 	if ( pageName != "" )
 	{
 		ChangePageNamed(pageName);
 	}
+
 	Log("OpenBook" @ pageName $ "," @ string(curPage));
+
 	if ( curPage != None )
 	{
 		curPage.PreOpenBook();
 	}
-	if (!(pageName ~= "MAIN" ))
+
+	// Omega: Allow page to handle its music playing
+	if (!(pageName ~= "MAIN" ) && curPage.ShouldPlayMusic())
 	{
 		bNeedToStartMusic = True;
 	}
@@ -819,6 +898,7 @@ function StopMusic()
 		MusicToPlay = Default.MusicToPlay;
 	}
 }
+
 // Omega: Start a new song
 function PlayMusic(optional string NewMusic)
 {
@@ -971,11 +1051,57 @@ function ToggleMap()
 		CloseBook();
 	} 
 	else 
+	if(CanChangePageFromHotkey())
 	{
 		HPConsole(Root.Console).bQuickKeyEnable = False;
 		HPConsole(Root.Console).LaunchUWindow(True);
 		OpenBook("MAP");
 		ChangePage(MapPage);
+	}
+}
+
+function OpenPage(String Name)
+{
+	if(CurPage == ReturnCustomPage(Name))
+	{
+		CloseBook();
+	}
+	else
+	if(CanChangePageFromHotkey())
+	{
+		HPConsole(Root.Console).bQuickKeyEnable = False;
+		HPConsole(Root.Console).LaunchUWindow(True);
+		OpenBook();
+		//ChangePage(GameStartPage);
+		ChangePageNamed(Name);
+		CheckMusic();
+	}
+}
+
+function OpenPageWithoutPause(String Name)
+{
+	if(CurPage == ReturnCustomPage(Name))
+	{
+		CloseBook();
+	}
+	else
+	if(CanChangePageFromHotkey())
+	{
+		HPConsole(Root.Console).bQuickKeyEnable = False;
+		HPConsole(Root.Console).LaunchUWindow(False);
+		OpenBook();
+		//ChangePage(GameStartPage);
+		ChangePageNamed(Name);
+		CheckMusic();
+	}
+}
+
+// Omega: Quick check for music since we altered some of that behavior
+function CheckMusic()
+{
+	if(curPage.ShouldPlayMusic() && nMusicHandle == 0)
+	{
+		bNeedToStartMusic = True;
 	}
 }
 
@@ -1002,6 +1128,12 @@ function ExitFromConsole()
 	bShowBackground = False;
 	ConfirmQuitGame = doHPMessageBox("Are you sure you want to quit","Yes","No");
 	return;
+}
+
+// Omega: Whether or not we can change the page using a hotkey
+function bool CanChangePageFromHotkey()
+{
+	return curPage == None || curPage.CanChangePageFromHotkey() || !HPConsole(GetPlayerOwner().Player.Console).bUWindowActive;
 }
 
 function Notify (UWindowDialogControl C, byte E)
@@ -1075,6 +1207,12 @@ function bool KeyEvent(EInputKey Key, EInputAction Action, float Delta)//(byte K
 	if ( DemoAd != None )
 	{
 		return DemoAd.KeyEvent(Key,Action,Delta);
+	}
+
+	// Omega: We actually need this...
+	if ( Root.ModalWindow != None )
+	{
+		return False;
 	}
 
 	// Metallicafan212: Fix the input page lmao
@@ -1184,8 +1322,19 @@ function bool KeyEvent(EInputKey Key, EInputAction Action, float Delta)//(byte K
 	return False;
 }
 
+// Omega: Yeah. We're spelling it that way. Lol
+function bool EffFour()
+{
+	return curPage == None || curPage.CanEffFour();
+}
+
 function bool DoEscapeFromPage()
 {
+	// Omega: Handle modal windows
+	if ( Root.ModalWindow != None && bIsOpen )
+	{
+		return True;
+	}
 
 	if ( curPage == InGamePage )
 	{
@@ -1193,9 +1342,10 @@ function bool DoEscapeFromPage()
 		return True;
 	} 
 	else 
-	if ( curPage != MainPage )
+	// Omega: Allow the page to handle its escape
+	if (curPage != MainPage && !curPage.HandleEscFromPage())
 	{
-		if ( prevPage == None )
+		if (prevPage == None)
 		{
 			CloseBook();
 		} 
@@ -1231,8 +1381,11 @@ function RunTheCredits()
 	{
 		return;
 	}
-	HPConsole(Root.Console).bQuickKeyEnable = False;
-	OpenBook();
+	
+	// DivingDeep39: (Aug 9, 2025) With Omega's latest changes to playable music in menus, I moved these two lines to ShowCredits() so the music can play in the stock game.
+	//HPConsole(Root.Console).bQuickKeyEnable = False;
+	//OpenBook();
+	
 	ShowCredits();
 }
 
@@ -1245,7 +1398,10 @@ function ShowCredits()
 		CreditsPage.book = self;
 		CreditsPage.HideWindow();
 	}
-	ChangePageNamed("CREDITSPAGE");
+	// DivingDeep39: (Aug 9, 2025) Added the following lines from RunTheCredits() and replaced ChangePageNamed() with OpenBook()
+	//ChangePageNamed("CREDITSPAGE");
+	HPConsole(Root.Console).bQuickKeyEnable = False;
+	OpenBook("CREDITSPAGE");
 }
 
 function DoStoryBookInterlude (int StoryBookIdx, name EventWhenDone)

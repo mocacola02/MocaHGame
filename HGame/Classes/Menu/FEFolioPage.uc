@@ -867,7 +867,9 @@ function PaintCardStatData (Canvas Canvas, float fCanvasScaleFactor)
 	//nXPos = (BronzeButton.WinLeft + BronzeButton.WinWidth + 24) * fHWindowScaleFactor; 
 
 	// Omega: Scale by the 4:3 div. This really isn't right but I'm not sure why the math is really wrong in the first place...
-	nXPos = ((BronzeButton.WinLeft/FourByThreeDiv) + BronzeButton.WinWidth + (24 * FourByThreeDiv)) * fHWindowScaleFactor;
+	//nXPos = ((BronzeButton.WinLeft/FourByThreeDiv) + BronzeButton.WinWidth + (24 * FourByThreeDiv)) * fHWindowScaleFactor;
+	// Omega: Note to self, just let the button coordinates handle this and use the scale factor
+	nXPos = (BronzeButton.WinLeft + BronzeButton.WinWidth + 24) * fWindowScaleFactor;
 	//nYPos = BronzeButton.WinTop * fWindowScaleFactor * HScale;
 	
 	//AdamJD(2023):	Scale the health bars near the bronze card button in widescreen
@@ -883,7 +885,8 @@ function PaintCardStatData (Canvas Canvas, float fCanvasScaleFactor)
 	//nXPos = (SilverButton.WinLeft + SilverButton.WinWidth + 24) * fHWindowScaleFactor;
 
 	// Omega: Scale by the 4:3 div
-	nXPos = ((SilverButton.WinLeft/FourByThreeDiv) + SilverButton.WinWidth + (24 * FourByThreeDiv)) * fHWindowScaleFactor;
+	//nXPos = ((SilverButton.WinLeft/FourByThreeDiv) + SilverButton.WinWidth + (24 * FourByThreeDiv)) * fHWindowScaleFactor;
+	nXPos = (SilverButton.WinLeft + SilverButton.WinWidth + 24) * fWindowScaleFactor;
 	//nYPos = SilverButton.WinTop * fWindowScaleFactor * HScale;
 	
 	//AdamJD(2023):	Scale the keys near the silver card button in widescreen

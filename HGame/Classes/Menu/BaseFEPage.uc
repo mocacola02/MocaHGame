@@ -6,10 +6,10 @@ class baseFEPage extends UWindowDialogClientWindow;
 
 struct CurrRolloverInfo
 {
-  var HGameButton Button;
-  var Texture textureRO;
-  var bool bROIsWet;
-  var Sound soundRO;
+	var HGameButton Button;
+	var Texture textureRO;
+	var bool bROIsWet;
+	var Sound soundRO;
 };
 
 var baseFEBook book;
@@ -21,6 +21,8 @@ var CurrRolloverInfo CurrRollover;
 
 // Metallicafan212:	Custom object for additional layering
 var Class<M212CustBack> ExBackLayering;
+
+var String PageName;
 
 function string GetLocalFEString (string strId)
 {
@@ -328,4 +330,31 @@ function WindowEvent (WinMessage Msg, Canvas C, float X, float Y, int Key)
 function bool KeyEvent(EInputKey Key, EInputAction Action, float Delta)//(byte Key, byte Action, float Delta)
 {
 	return False;
+}
+
+// Omega: If we're handling the escape manually, return true. Default FEBook handles it
+function bool HandleEscFromPage()
+{
+	return false;
+}
+
+function bool CanChangePageFromHotkey()
+{
+	return false;
+}
+
+// Omega: Subscribe to the bug
+function bool CanEffFour()
+{
+	return true;
+}
+
+function bool ShouldPlayMusic()
+{
+	return true;
+}
+
+defaultproperties
+{
+	//PageName=""
 }

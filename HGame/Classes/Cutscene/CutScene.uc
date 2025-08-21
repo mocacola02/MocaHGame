@@ -6,6 +6,7 @@
 class CutScene extends Actor;
 
 const MAX_THREADS=20;
+// Omega: If only we could update this to be dynamic
 var() string aThreadScripts[20];
 var CutScript aThreads[20];
 var bool bHasBeenDisabled;
@@ -15,7 +16,8 @@ var bool Saved_bDoImmediateStart;
 var() bool bBumpStarts;
 var() bool bTriggerStarts;
 var() bool bLevelLoadStarts;
-var() string FileName;
+// Omega: Add support for uncompiled files
+var() string FileName, UncompiledFileName, UncompiledFileExtension;
 var() bool bPlayOnce;
 var() bool bDelayLevelFadeIn;
 var() bool bTriggerTogglesBumpStart;
@@ -26,6 +28,9 @@ var int numScriptsPlaying;
 var int nPlayedCount;
 var bool bFastForwarding;
 var int safetyLoopCount;
+
+// Omega: Support for loading specific cutscenes by the command line for testing
+var NoPersistent bool bPlayByCmd, bDisabledByCmd, bCheckedCmd;
 
 // Omega: New cutscript class vars. Cutscript now has a forward def for load, unimplemented for base
 // cutscript class
@@ -55,14 +60,66 @@ function CutCue (string cue)
 	}
 }
 
+function bool CheckLaunchArgs()
+{
+	local array<String> LaunchArgs;
+	local int i;
+
+	bCheckedCmd = True;
+
+	// Omega: Check our launch arguments:
+	LaunchArgs = GetLaunchArgumentsArray();
+	for(i = 0; i < LaunchArgs.Length; i++)
+	{
+		//Log(Name$ " Launch argument: " $LaunchArgs[i]);
+		
+		//Log("Launch arguments: " $LaunchArgs[i]);
+		if(Left(LaunchArgs[i], len("TestCutscene=")) ~= "TestCutscene=")
+		{
+			if(Mid(LaunchArgs[i], len("TestCutscene=")) ~= String(Name))
+			{
+				if(bInCurrentGameState)
+				{
+					Log(Self$ "Found testing cutscene in our Gamestate, setting to bLevelLoadStarts = True!!");
+					bPlayByCmd = True;
+					return false;
+				}
+				else
+				{
+					bDisabledByCmd = True;
+
+					Log(Self$ " Found testing cutscene NOT in our Gamestate. Will not start!!");
+					GoToState('disabled');
+					return true;
+				}
+			}
+			else
+			{
+				bDisabledByCmd = True;
+
+				Log(Name$ " Disabled from command line specifying test cutscene!");
+				GotoState('disabled');
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
 event OnResolveGameState ()
 {
 	// Metallicafan212:	Cache the reference
 	local Harry pHarry;
 	
 	pHarry = Harry(Level.PlayerHarryActor);
+
+	if(CheckLaunchArgs())
+	{
+		return;
+	}
 	
-	if (  !bInCurrentGameState )
+	if(!bInCurrentGameState)
 	{
 		GotoState('disabled');
 		Log("*** " $ string(self) $ " is NOT in the current GameState. CurrentGameState = " $ harry(Level.PlayerHarryActor).CurrentGameState);
@@ -95,9 +152,19 @@ event OnResolveGameState ()
 
 event PostBeginPlay ()
 {
-	if ( bLevelLoadStarts )
+	if(!bCheckedCmd)
+	{
+		CheckLaunchArgs();
+	}
+
+	if ((bLevelLoadStarts || bPlayByCmd) && !bDisabledByCmd)
 	{
 		bDoImmediateStart = True;
+	}
+
+	if(bDisabledByCmd)
+	{
+		GoToState('Disabled');
 	}
 	
 	//log("Post");
@@ -108,8 +175,14 @@ function CreateThreads ()
 	local int I;
 	local int t;
 	local string Line;
+	local array<string> SA;
 
-	if ( FileName != "" )
+	if(UncompiledFileName != "")
+	{
+		CreateUncompiledThreads();
+	}
+	else
+	if (FileName != "")
 	{
 		for(t = 0; t < MAX_THREADS; t++)
 		{
@@ -148,6 +221,80 @@ function CreateThreads ()
 		}
 	}
 }
+
+// Omega: Create our uncompiled threads
+function CreateUncompiledThreads()
+{
+	local int i, t;
+	local array<string> SA;
+	local string Script;
+
+	// Omega: Initialize ourselves at -1 so we end up at 0 starting out
+	// Probably a better way to do this but eh, saves us a boolean and whatnot
+	t = -1;
+
+	LoadStringArray(SA, "..\\Cutscenes\\" $UncompiledFileName$UncompiledFileExtension);
+
+	Log(UncompiledFileName$UncompiledFileExtension$ " lines: " $SA.Length);
+
+	if(SA.Length == 0)
+	{
+		return;
+	}
+
+	// Omega: Start with a script, create new ones as needed
+	aThreads[0] = Spawn(CutscriptClass);
+	aThreads[0].parentCutscene = self;
+	aThreads[0].ThreadNum = 0;
+
+	for(i = 0; i < SA.Length; i++)
+	{
+		//Log("Thread " $Max(t, 0)$ " SA[i] = " $SA[i]);
+		// Omega: KW used the right bracket only for this detection in their cut compiler. Man.
+		if(instr(SA[i], "[") != -1 && instr(SA[i], "]") != -1)
+		{
+			// Omega: Find our first thread index
+			t++;
+			if(t > 0)
+			{
+				aThreads[t] = Spawn(CutscriptClass);
+				aThreads[t].parentCutscene = self;
+				aThreads[t].ThreadNum = t;
+			}
+			if(t > MAX_THREADS)
+			{
+				CMAndLog("ERROR!! Too many threads being created for uncompiled cutscene: " $UncompiledFileName$UncompiledFileExtension);
+
+				// Omega: Play them for safety anyway:
+				for(i = 0; i < MAX_THREADS; i++)
+				{
+					aThreads[i].Play();
+				}
+
+				return;
+			}
+
+			Log("Appending thread line into thread: " $Max(t, 0));
+			// Omega: Comment it out so we don't get spew, but keep it for debugging purposes
+			//aThreads[Max(t, 0)].Script = aThreads[Max(t, 0)].Script $ "//" $SA[i] $ Chr(10);
+			Script = "//" $SA[i] $ Chr(10);
+		}
+		else
+		{
+			Script $= SA[i] $ Chr(10);
+			//aThreads[Max(t, 0)].Script = aThreads[Max(t, 0)].Script $ SA[i] $ Chr(10);
+		}
+		
+		// Omega: For some reason there seems to be a limitation directly addressing it? Odd
+		aThreads[Max(t, 0)].Script = Script;
+	}
+
+	for(i = 0; i < MAX_THREADS; i++)
+	{
+		aThreads[i].Play();
+	}
+}
+
 
 function DeleteThreads ()
 {
@@ -199,6 +346,21 @@ state Idle
 {
 	event BeginState ()
 	{
+		if(!bCheckedCmd)
+		{
+			CheckLaunchArgs();
+
+			if(bPlayByCmd)
+			{
+				bDoImmediateStart = True;
+			}
+			else
+			if(bDisabledByCmd)
+			{
+				GoToState('Disabled');
+			}
+		}
+
 		harry(Level.PlayerHarryActor).ClientMessage(string(self) $ " Entering ENABLED state");
 		if (  !bInCurrentGameState )
 		{
@@ -421,6 +583,11 @@ state Finished
 		bPlaying = False;
 		Default.numScriptsPlaying--;
 		DeleteThreads();
+		if(bPlayByCmd)
+		{
+			Log(Self$ " Thank you for playing my cutscene! Good bye!");
+			ConsoleCommand("exit");
+		}
 	Loop:
 		if (  !bPlayOnce )
 		{
@@ -430,7 +597,7 @@ state Finished
 
 function Play ()
 {
-	if ( bPlaying )
+	if ( bPlaying || bDisabledByCmd )
 	{
 		return;
 	}
@@ -438,6 +605,15 @@ function Play ()
 	{
 		return;
 	}
+	nPlayedCount++;
+	CutSceneLog(" starting for the " $ string(nPlayedCount) $ " time");
+	CreateThreads();
+	GotoState('Running');
+}
+
+// Omega: Force play
+function ForcePlayFromEditor()
+{
 	nPlayedCount++;
 	CutSceneLog(" starting for the " $ string(nPlayedCount) $ " time");
 	CreateThreads();
@@ -487,4 +663,6 @@ defaultproperties
 	CutscriptClass=Class'CutScript'
 
 	CutscriptDiskClass=Class'CutScriptDisk'
+
+	UncompiledFileExtension=".txt"
 }
