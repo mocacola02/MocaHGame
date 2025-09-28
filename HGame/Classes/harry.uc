@@ -2,6 +2,8 @@
 // harry.
 //================================================================================ 
 
+// MocaHGame rewrite started 9/28/2025.
+
 class harry extends PlayerPawn
   Config(User);    
 
