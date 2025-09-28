@@ -4,61 +4,48 @@
 
 class CauldronMixing extends HCauldron;
 
-const strCUE_CAULDRON_NOT_AVAIL_LINE= "_MixingCauldronsNotAvailableYet";
-const nPOTIONS_AVAILABLE_STATE= 40;
-const strTEMP_CAULDRON_CUT_NAME= "TempMixingCauldronCutName";
-const TOP_OF_CAULDRON_OFFSET= 25;
+const strCUE_CAULDRON_NOT_AVAIL_LINE= "_MixingCauldronsNotAvailableYet";	// Moca: Const localization string for the disabled cauldron text.
 
-enum ECauldronFX 
+// Moca: Enum for the start modes.
+enum eStartMixOn
 {
-	CauldronFX_Neutral,
-	CauldronFX_Mixed
+	SMO_Trigger,
+	SMO_Bump
 };
 
-enum EStartMixOn 
-{
-	StartMixOn_Trigger,
-	StartMixOn_Bump
-};
+var() bool bIgnoreGamestate;		// Moca: Should gamestate be ignored entirely? Aka we rely entirely on bMixingEnabled. Def: False
+var() int iGamestateEnabledOn; 		// Metallicafan212:	Gamestate the pot is enabled on. Def: 40
 
+var() float fMixingCooldown;		// Moca: How long to wait in seconds before re-enabling the cauldron after a mix. Def: 4.5
+
+var() float CauldronFXOffset;		// Moca: Offset for cauldron particle FX. Def: 25.0
+var() class<ParticleFX> NeutralFX;	// Moca: Particle class for the neutral FX. Def: ParticleFX'Cauldron_Neutral'
+var() class<ParticleFX> MixedFX;	// Moca: Particle class for the mixed FX. Def: ParticleFX'Cauldron_Mixed'
+
+var() eStartMixOn StartMixOn;		// Moca: What causes the start to mix, a trigger or a bump? Def: SMO_Bump
+
+var() bool bMixingEnabled;			// Moca: Is mixing enabled by default? This will be overridden by gamestate if bIgnoreGamestate is false. Def: True
+
+var int iPotionCount;				// Moca: How many potions to make when mixing. Determined in code.
+
+var Vector vTopOfCauldron;			// Moca: Location of the top of the cauldron.
+
+var HProp propTemp;					// Moca: HProp reference for the HUD fly effect.
+
+// Moca: StatusGroup/Item refs.
 var StatusGroup sgPotionIngr;
 var StatusGroup sgPotions;
 var StatusItem siWiggenBark;
 var StatusItem siFlobberMucus;
-var HProp propTemp;
-var Vector vFlobberHudLoc;
-var Vector vWiggenHudLoc;
-var Vector vWWellPotionHudLoc;
-var Vector vTopOfCauldron;
-var int nPotionCount;
-var int I;
 
-// Metallicafan212:	Gamestate the pot is enabled on. Default was a const variable for 40
-var() int iGamestateEnabledOn;
+//-------------------------------------
+// BeginPlay
+//-------------------------------------
 
-var Rotator R;
-var Vector vTargetDir;
-var float fYawChange;
-var() EStartMixOn StartMixOn;
-var() bool bMixingEnabled;
-
-// Metallicafan212:	This fixes the cauldron in Snape's classroom by making sure when we resolve gamestate, that the cauldron is enabled in the right GStates.
-//					If you want to always manually enable mixing, set this to false.
-var() bool bAutoTestGameState;
-
-
-event PreBeginPlay()
+event PostBeginPlay()
 {
-	Super.PreBeginPlay();
-	
-	// Metallicafan212:	Automatically check if we're allowed to mix.
-	if(bAutoTestGameState && !bMixingEnabled)
-	{
-		if(PlayerHarry.iGameState >= iGamestateEnabledOn)
-		{
-			bMixingEnabled = true;
-		}
-	}
+	Super.PostBeginPlay();
+	InitStatusItems();
 }
 
 // Metallicafan212:	Move it here so we can call upon it to fix it up.
@@ -70,44 +57,53 @@ function InitStatusItems()
 	siFlobberMucus 	= sgPotionIngr.GetStatusItem(Class'StatusItemFlobberMucus');
 }
 
-event PostBeginPlay()
-{
-	Super.PostBeginPlay();
-	
-	InitStatusItems();
-}
+//-------------------------------------
+// Events
+//-------------------------------------
 
 event Trigger (Actor Other, Pawn EventInstigator)
 {
-	if ( bMixingEnabled && StartMixOn == StartMixOn_Trigger && HaveWiggenPotionIngredients() )
+	if (StartMixOn != SMO_Trigger || !HaveWiggenPotionIngredients())
 	{
-		GotoState('Mixing');
+		return;
 	}
+
+	GotoState('Mixing');
 }
 
 event Bump (Actor Other)
 {
-	local int nGameState;
-	
-	// Metallicafan212:	Automatically check if we're allowed to mix.
-	if(bAutoTestGameState && !bMixingEnabled)
+	if (StartMixOn != SMO_Bump || !HaveWiggenPotionIngredients())
+	{
+		return;
+	}
+
+	if(!bIgnoreGamestate)
 	{
 		if(PlayerHarry.iGameState >= iGamestateEnabledOn)
 		{
 			bMixingEnabled = true;
 		}
+		else
+		{
+			bMixingEnable = false;
+		}
 	}
 
-	if ( PlayerHarry.iGameState < iGamestateEnabledOn )
+	if (!bMixingEnabled)
 	{
 		GotoState('CauldronsNotAvailableYet');
-	} 
-	else if ( bMixingEnabled && StartMixOn == StartMixOn_Bump && HaveWiggenPotionIngredients() )
+	}
+	else
     {
 		TriggerEvent(Event, None, None);
 		GotoState('Mixing');
     }
 }
+
+//-------------------------------------
+// Misc. Functions
+//-------------------------------------
 
 function bool CutCommand (string Command, optional string cue, optional bool bFastFlag)
 {
@@ -142,27 +138,18 @@ function bool CutCommand (string Command, optional string cue, optional bool bFa
 	}
 }
 
-function SetCauldronFX (ECauldronFX FX)
+function SetCauldronFX (class<ParticleFX> FX)
 {
 	local Vector vOffset;
 	
 	killAttachedParticleFX(0.0);
+
 	vOffset.X = 0.0;
 	vOffset.Y = 0.0;
-	vOffset.Z = TOP_OF_CAULDRON_OFFSET;
+	vOffset.Z = CauldronFXOffset;
 	attachedParticleOffset[0] = vOffset;
-	switch (FX)
-	{
-		case CauldronFX_Neutral:
-			attachedParticleClass[0] = Class'Cauldron_Neutral';
-			break;
-		case CauldronFX_Mixed:
-			attachedParticleClass[0] = Class'Cauldron_Mixed';
-			break;
-		default:
-			Log("ERROR: Invalid cauldron fx");
-			break;
-	}
+	attachedParticleClass[0] = FX;
+
 	CreateAttachedParticleFX();
 }
 
@@ -183,29 +170,21 @@ function bool HaveWiggenPotionIngredients()
 		InitStatusItems();
 	}
 	
-	return (siWiggenBark.nCount >= 1) && (siFlobberMucus.nCount >= 1);
+	return (siWiggenBark.nCount > 0) && (siFlobberMucus.nCount > 0);
 }
 
 auto state Idle
 {
 	event BeginState()
 	{
-		Super.BeginState();;
-		SetCauldronFX(CauldronFX_Neutral);
+		Super.BeginState();
+		SetCauldronFX(NeutralFX);
 	}
 }
 
 state CauldronsNotAvailableYet
 {
 	ignores Bump;
-  
-	function CutCue (string cue)
-	{
-		if ( cue ~= strCUE_CAULDRON_NOT_AVAIL_LINE )
-		{
-			GotoState('Idle');
-		}
-	}
 	
 	event BeginState()
 	{
@@ -230,45 +209,79 @@ state CauldronsNotAvailableYet
 		tcue.SetupTimer(fSoundLen + 0.5,strCUE_CAULDRON_NOT_AVAIL_LINE);
 		harry(Level.PlayerHarryActor).myHUD.SetSubtitleText(strDialog,fSoundLen);
 	}
+
+	function CutCue (string cue)
+	{
+		if ( cue ~= strCUE_CAULDRON_NOT_AVAIL_LINE )
+		{
+			GotoState('Idle');
+		}
+	}
 }
 
 state Mixing
 {
 	ignores Bump;
-	
-	begin:
-		PlayerHarry.DoPotionMixingBegin();
+
+	event BeginState()
+	{
+		harry(Level.PlayerHarryActor).ActiveCauldron = self;
 		sgPotionIngr.SetEffectTypeToPermanent();
 		sgPotions.SetEffectTypeToPermanent();
 		sgPotionIngr.SetCutSceneRenderMode(True);
 		sgPotions.SetCutSceneRenderMode(True);
+	}
+
+	event EndState()
+	{
+		sgPotionIngr.SetCutSceneRenderModeToNormal();
+		sgPotions.SetCutSceneRenderModeToNormal();
+		sgPotionIngr.SetEffectTypeToNormal();
+		sgPotions.SetEffectTypeToNormal();
+	}
+
+	function GetFlobberLoc()
+	{
+		local Vector vFlobberHudLoc;
+
+		vFlobberHudLoc = sgPotionIngr.GetItemLocation(Class'StatusItemFlobberMucus',False);
+		propTemp = HProp(FancySpawn(Class'FlobberwormMucus',,,vFlobberHudLoc));
+		propTemp.fMinFlyToHudScale = 0.1;
+		propTemp.fMaxFlyToHudScale = 0.4;
+		propTemp.DoDropOffProp(vTopOfCauldron,True);
+	}
+
+	function HandlePropFly(Vector HudLoc, class<PotionIngredients> IngredClass)
+	{
+		propTemp = HProp(FancySpawn(IngredClass,,,HudLoc));
+		propTemp.fMinFlyToHudScale = 0.1;
+		propTemp.fMaxFlyToHudScale = 0.4;
+		propTemp.DoDropOffProp(vTopOfCauldron,True);
+	}
+	
+	begin:
+		PlayerHarry.GotoState('statePotionMixingBegin');
+
 		Sleep(0.5);
+
 		vTopOfCauldron = Location;
 		vTopOfCauldron.Z += 40;
-		nPotionCount = GetNumPotionsToMake();
+
+		iPotionCount = GetNumPotionsToMake();
 		
-		for(I = 0; I < nPotionCount; I++)
+		for(I = 0; I < iPotionCount; I++)
 		{
-			vFlobberHudLoc = sgPotionIngr.GetItemLocation(Class'StatusItemFlobberMucus',False);
-			propTemp = HProp(FancySpawn(Class'FlobberwormMucus',,,vFlobberHudLoc));
-			propTemp.fMinFlyToHudScale = 0.1;
-			propTemp.fMaxFlyToHudScale = 0.4;
-			propTemp.DoDropOffProp(vTopOfCauldron,True);
+			HandlePropFly(sgPotionIngr.GetItemLocation(Class'StatusItemFlobberMucus',False), Class'FlobberwormMucus');
 			Sleep(0.1);
-			vWiggenHudLoc = sgPotionIngr.GetItemLocation(Class'StatusItemWiggenBark',False);
-			propTemp = HProp(FancySpawn(Class'WiggentreeBark',,,vFlobberHudLoc));
-			propTemp.fMinFlyToHudScale = 0.1;
-			propTemp.fMaxFlyToHudScale = 0.4;
-			propTemp.DoDropOffProp(vTopOfCauldron,True);
+			HandlePropFly(sgPotionIngr.GetItemLocation(Class'StatusItemWiggenBark',False), Class'WiggentreeBark');
 			Sleep(0.1);
 		}		
 		
-		PlayerHarry.DoPotionMixingStir();
+		PlayerHarry.GotoState('statePotionMixingStir');
 		Sleep(1.0);
 		
-		for(I = 0; I < nPotionCount; I++)
+		for(I = 0; I < iPotionCount; I++)
 		{
-			vWWellPotionHudLoc = sgPotions.GetItemLocation(Class'StatusItemWiggenwell',False);
 			propTemp = HProp(FancySpawn(Class'WWellCauldronBottle',,,vTopOfCauldron));
 			Sleep(0.25);
 			propTemp.fTotalFlyTime = 0.5;
@@ -276,16 +289,18 @@ state Mixing
 			propTemp.DoPickupProp();
 			Sleep(0.25);
 		}
-		SetCauldronFX(CauldronFX_Mixed);
+
+		SetCauldronFX(MixedFX);
+
 		Sleep(0.3);
-		PlayerHarry.DoPotionMixingIdle();
+
+		PlayerHarry.GotoState('statePotionMixingIdle');
+
 		PlaySound(Sound'Potion_complete');
+
 		PlayerHarry.DoPotionMixingEnd();
-		Sleep(4.5);
-		sgPotionIngr.SetCutSceneRenderModeToNormal();
-		sgPotions.SetCutSceneRenderModeToNormal();
-		sgPotionIngr.SetEffectTypeToNormal();
-		sgPotions.SetEffectTypeToNormal();
+
+		Sleep(fMixingCooldown);
 		GotoState('Idle');
 }
 
@@ -298,9 +313,18 @@ defaultproperties
     CollisionRadius=15.00
 
     CollisionHeight=100.00
+
+	bMixingEnabled=True
 	
 	iGamestateEnabledOn=40
-	
-	bAutoTestGameState=true
 
+	fMixingCooldown=4.5
+
+	CauldronFXOffset=25.0
+
+	NeutralFX=ParticleFX'Cauldron_Neutral'
+
+	NeutralFX=ParticleFX'Cauldron_Mixed'
+
+	StartMixOn=SMO_Bump
 }

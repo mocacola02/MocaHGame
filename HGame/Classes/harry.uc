@@ -218,6 +218,8 @@ var travel int curQuidMatchNum;
 var baseWand Wand;
 var BaseCam Cam;
 var FEBook menuBook;
+var HPawn CarryingActor;
+var CauldronMixing ActiveCauldron;
 
 //-------------------------------------
 // Misc. Travel
@@ -898,178 +900,177 @@ function SetCarryingActor (Actor A, optional name nameBone)
 	bThrow = False;
 }
 
-// Used for accurate throwing
-function Actor FindClosestTargetPoint()
+function AttachCarryActor (optional name nameBone)
+{
+	if ( ActorToCarry != None )
+	{
+		SetCarryingActor(ActorToCarry,nameBone);
+	} 
+	else
+	{
+		DropCarryingActor();
+	}
+}
+
+function PickupActor (Actor Other)
+{
+	if (!PickupActor.IsA('HPawn'))
+	{
+		return;
+	}
+
+	local HPawn ActorToPickup;
+	ActorToPickup = HPawn(Other);
+
+	if ( Physics == PHYS_Walking && IsInState('PlayerWalking') && CarryingActor == None && ActorToPickup.bObjectCanBePickedUp && HarryAnimChannel.CanPickSomethingUp() )
+	{
+		ClientMessage("Do Pickup");
+		ActorToCarry = Other;
+		GotoState('statePickupItem');
+	}
+}
+
+function DropCarryingActor (optional bool bLatentDrop)
+{
+	ClientMessage("** DropCarryingActor");
+
+	if ( CarryingActor != None )
+	{
+		CarryingActor.SetPhysics(PHYS_Falling);
+		CarryingActor.SetOwner(None);
+		CarryingActor.Velocity = vect(0.00,0.00,125.00);
+		CarryingActor.Instigator = self;
+		CarryingActor.bRotateToDesired = True;
+		CarryingActor.SetCollision(True,True,True);
+		CarryingActor = None;
+	}
+
+	if ( IsInState('statePickupItem') )
+	{
+		GotoState('PlayerWalking');
+	}
+
+	if ( !bLatentDrop )
+	{
+		HarryAnimChannel.GotoState('stateIdle');
+		HarryAnimType = AT_Replace;
+	}
+	
+	Weapon.bHidden = False;
+}
+
+function ThrowCarryingActor()
+{
+	local Vector V;
+	local HPawn A;
+	local Actor aTarget;
+	local float ThrowVelocity;
+
+	if ( bThrow && (CarryingActor != None) )
+	{
+		bThrow = False;
+		A = CarryingActor;
+		DropCarryingActor(True);
+
+		if (A.bAccurateThrowing)
+		{
+			aTarget = GetAccurateThrowTarget(A);
+		}
+
+		if ( aTarget != None && A.bAccurateThrowing)
+		{
+			HarryAccurateThrowObject(A,aTarget,True,True);
+		}
+		else
+		{
+			V = Normal(Cam.vForward + vect(0.00,0.00,0.50));
+
+			if ( A != None )
+			{
+				ThrowVelocity = A.fThrowVelocity;
+				A.GotoState('stateBeingThrown');
+			}
+			else
+			{
+				ThrowVelocity = 400.0;
+			}
+
+			V *= ThrowVelocity;
+			A.Velocity = V;
+		}
+	}
+}
+
+function Actor GetAccurateThrowTarget (HPawn A)
 {
 	local TargetPoint ClosestTP;
 	local TargetPoint CurrTP;
 	local float fClosestDist;
 	local float fDist;
 
-	ClosestTP = None;
 	fClosestDist = 999999.0;
 	foreach AllActors(Class'TargetPoint',CurrTP)
 	{
 		if ( InFrontOfHarry(CurrTP) )
 		{
-		fDist = VSize(CurrTP.Location - Location);
-		if ( fDist < fClosestDist )
-		{
-			ClosestTP = CurrTP;
-			fClosestDist = fDist;
-		}
+			fDist = VSize(CurrTP.Location - Location);
+			if ( fDist < fClosestDist )
+			{
+				ClosestTP = CurrTP;
+				fClosestDist = fDist;
+			}
 		}
 	}
+
 	return ClosestTP;
 }
 
-function Actor AccurateThrowing (Actor A)
+function HarryAccurateThrowObject (HPawn A, Actor Target, bool bCollideActors, bool bCollideWorld)
 {
-	//local Actor Target;
-	local Actor aTarget;
+	local Vector Vel;
 
-	if (  !HPawn(A).bAccurateThrowing )
-	{
-		return None;
-	}
-	aTarget = FindClosestTargetPoint();
-	return aTarget;
-}
-
-function HarryAccurateThrowObject (Actor A, Actor Target, bool bCollideActors, bool bCollideWorld)
-{
-  local Vector Vel;
-
-  A.SetPhysics(PHYS_Falling);
-  A.SetCollision(bCollideActors);
-  A.bCollideWorld = bCollideWorld;
-  Vel = ComputeTrajectoryByTime(A.Location,Target.Location,0.5);
-  A.Velocity = Vel;
-  A.GotoState('stateBeingThrown');
-}
-
-function ThrowCarryingActor()
-{
-  local Vector V;
-  local Vector v2;
-  local Rotator R;
-  local Actor A;
-  //local Actor Target;
-  local Actor aTarget;
-  local float ThrowVelocity;
-
-  if ( bThrow && (CarryingActor != None) )
-  {
-    bThrow = False;
-    A = CarryingActor;
-    DropCarryingActor(True);
-    aTarget = AccurateThrowing(A);
-    if ( aTarget != None )
-    {
-      HarryAccurateThrowObject(A,aTarget,True,True);
-    } else {
-      V = Normal(Cam.vForward + vect(0.00,0.00,0.50));
-      if ( HPawn(A) != None )
-      {
-        ThrowVelocity = HPawn(A).fThrowVelocity;
-        A.GotoState('stateBeingThrown');
-      } else {
-        ThrowVelocity = 400.0;
-      }
-      V *= ThrowVelocity;
-      A.Velocity = V;
-    }
-  }
-}
-
-function AttachCarryActor (optional name nameBone)
-{
-  if ( ActorToCarry != None )
-  {
-    SetCarryingActor(ActorToCarry,nameBone);
-  } else {
-    DropCarryingActor();
-  }
-}
-
-function PickupActor (Actor Other)
-{
-  if ( Physics == PHYS_Walking && IsInState('PlayerWalking') && CarryingActor == None && HPawn(Other) != None && HPawn(Other).bObjectCanBePickedUp && HarryAnimChannel.CanPickSomethingUp() )
-  {
-    ClientMessage("Do Pickup");
-    ActorToCarry = Other;
-    GotoState('statePickupItem');
-  }
-}
-
-function DropCarryingActor (optional bool bLatentDrop)
-{
-  ClientMessage("** DropCarryingActor");
-  if ( CarryingActor != None )
-  {
-    CarryingActor.SetPhysics(PHYS_Falling);
-    CarryingActor.SetOwner(None);
-    CarryingActor.Velocity = vect(0.00,0.00,125.00);
-    CarryingActor.Instigator = self;
-    CarryingActor.bRotateToDesired = True;
-    CarryingActor.SetCollision(True,True,True);
-    CarryingActor = None;
-  }
-  if ( IsInState('statePickupItem') )
-  {
-    GotoState('PlayerWalking');
-  }
-  if (  !bLatentDrop )
-  {
-    HarryAnimChannel.GotoState('stateIdle');
-    HarryAnimType = AT_Replace;
-  }
-  Weapon.bHidden = False;
+	A.SetPhysics(PHYS_Falling);
+	A.SetCollision(bCollideActors);
+	A.bCollideWorld = bCollideWorld;
+	Vel = ComputeTrajectoryByTime(A.Location,Target.Location,0.5);
+	A.Velocity = Vel;
+	A.GotoState('stateBeingThrown');
 }
 
 state statePickupItem
 {
-  function BeginState()
-  {
-    Velocity *= vect(0.00,0.00,1.00);
-    Acceleration *= vect(0.00,0.00,1.00);
-  }
-  
-  begin:
-  CurrIdleAnimName = GetCurrIdleAnimName();
-  PlayAnim(CurrIdleAnimName,,[TweenTime]0.4,[Type]HarryAnimType);
-  if ( ActorToCarry != None )
-  {
-    TurnTo(ActorToCarry.Location * vect(1.00,1.00,0.00) + Location * vect(0.00,0.00,1.00));
-  }
-  HarryAnimType = AT_Combine;
-  HarryAnimChannel.GotoState('statePickupItem');
-  PlayAnim('Pickup',1.0,0.15,[Type]HarryAnimType);
-  FinishAnim();
-  Sleep(0.5);
-  GotoState('PlayerWalking');
+	function BeginState()
+	{
+		Velocity *= vect(0.00,0.00,1.00);
+		Acceleration *= vect(0.00,0.00,1.00);
+	}
+	
+	begin:
+	CurrIdleAnimName = GetCurrIdleAnimName();
+	PlayAnim(CurrIdleAnimName,,[TweenTime]0.4,[Type]HarryAnimType);
+
+	if ( ActorToCarry != None )
+	{
+		TurnTo(ActorToCarry.Location * vect(1.00,1.00,0.00) + Location * vect(0.00,0.00,1.00));
+	}
+
+	HarryAnimType = AT_Combine;
+	HarryAnimChannel.GotoState('statePickupItem');
+	PlayAnim('Pickup',1.0,0.15,[Type]HarryAnimType);
+	FinishAnim();
+	Sleep(0.5);
+	GotoState('PlayerWalking');
 }
 
-function DoPotionMixingBegin()
-{
-  bKeepStationary = True;
-  GotoState('statePotionMixingBegin');
-}
-
-function DoPotionMixingStir()
-{
-  GotoState('statePotionMixingStir');
-}
-
-function DoPotionMixingIdle()
-{
-  GotoState('statePotionMixingIdle');
-}
+//-------------------------------------
+// Potion Mixing
+//-------------------------------------
 
 function DoPotionMixingEnd()
 {
   CutCue("MixingCauldronDone");
   bKeepStationary = False;
+  ActiveCauldron = None;
   if (  !bIsCaptured )
   {
     GotoState('PlayerWalking');
@@ -1081,38 +1082,18 @@ function bool IsMixingPotion()
   return IsInState('statePotionMixingBegin') || IsInState('statePotionMixingStir') || IsInState('statePotionMixingIdle');
 }
 
-function CauldronMixing GetNearestMixingCauldron()
-{
-  local CauldronMixing cauldronTest;
-  local CauldronMixing cauldronClosest;
-
-  foreach AllActors(Class'CauldronMixing',cauldronTest)
-  {
-    if ( cauldronClosest == None )
-    {
-      cauldronClosest = cauldronTest;
-    } else //{
-      if ( VSize2D(cauldronTest.Location - Location) < VSize2D(cauldronClosest.Location - Location) )
-      {
-        cauldronClosest = cauldronTest;
-      }
-    //}
-  }
-  ClientMessage("closest " $ string(cauldronClosest.Name));
-  return cauldronClosest;
-}
-
 state statePotionMixingBegin
 {
-  function BeginState()
-  {
-    Velocity *= vect(0.00,0.00,1.00);
-    Acceleration *= vect(0.00,0.00,1.00);
-  }
-  
-  begin:
-  CurrIdleAnimName = GetCurrIdleAnimName();
-  LoopAnim(CurrIdleAnimName,,[TweenTime]0.4,,[Type]HarryAnimType);
+	function BeginState()
+	{
+		bKeepStationary = True;
+		Velocity *= vect(0.00,0.00,1.00);
+		Acceleration *= vect(0.00,0.00,1.00);
+	}
+	
+	begin:
+	CurrIdleAnimName = GetCurrIdleAnimName();
+	LoopAnim(CurrIdleAnimName,,[TweenTime]0.4,,[Type]HarryAnimType);
 }
 
 state statePotionMixingStir
@@ -1123,7 +1104,7 @@ state statePotionMixingStir
   }
   
   begin:
-  TurnToward(GetNearestMixingCauldron());
+  TurnToward(ActiveCauldron);
   LoopAnim('MixPotion',,,,[Type]HarryAnimType);
   switch (Rand(4))
   {
