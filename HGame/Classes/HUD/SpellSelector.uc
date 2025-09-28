@@ -12,40 +12,13 @@ const nSTART_X= 2;
 const strEXPELLIARMUS_HOTKEY= "3";
 const strMIMBLEWIMBLE_HOTKEY= "2";
 const strRICTUSEMPRA_HOTKEY= "1";
-const strSPELL_EXPELLIARMUS_SEL= "HP2_Menu.Icons.HP2SpellExpelliarmusSelect";
-const strSPELL_EXPELLIARMUS= "HP2_Menu.Icons.HP2SpellExpelliarmus";
-const strSPELL_MIMBLEWIMBLE_SEL= "HP2_Menu.Icons.HP2SpellMimblewimbleSelect";
-const strSPELL_MIMBLEWIMBLE= "HP2_Menu.Icons.HP2SpellMimblewimble";
-const strSPELL_RICTUSEMPRA_SEL= "HP2_Menu.Icons.HP2SpellRictusempraSelect";
-const strSPELL_RICTUSEMPRA= "HP2_Menu.Icons.HP2SpellRictusempra";
 
-enum ESpellSelection 
-{
-	SSelection_Rictusempra,
-	SSelection_Mimblewimble,
-	SSelection_Expelliarmus
-};
-
-var Texture textureSpellRictusempra;
-var Texture textureSpellRictusempraSel;
-var Texture textureSpellMimblewimble;
-var Texture textureSpellMimblewimbleSel;
-var Texture textureSpellExpelliarmus;
-var Texture textureSpellExpelliarmusSel;
-var ESpellSelection CurrSelection;
+var class<baseSpell> CurrSelection;
 
 
 event PostBeginPlay()
 {
 	Super.PostBeginPlay();
-	
-	textureSpellRictusempra 		= Texture(DynamicLoadObject(strSPELL_RICTUSEMPRA, Class'Texture'));
-	textureSpellRictusempraSel 		= Texture(DynamicLoadObject(strSPELL_RICTUSEMPRA_SEL, Class'Texture'));
-	textureSpellMimblewimble 		= Texture(DynamicLoadObject(strSPELL_MIMBLEWIMBLE, Class'Texture'));
-	textureSpellMimblewimbleSel 	= Texture(DynamicLoadObject(strSPELL_MIMBLEWIMBLE_SEL, Class'Texture'));
-	textureSpellExpelliarmus 		= Texture(DynamicLoadObject(strSPELL_EXPELLIARMUS, Class'Texture'));
-	textureSpellExpelliarmusSel 	= Texture(DynamicLoadObject(strSPELL_EXPELLIARMUS_SEL, Class'Texture'));
-	
 	SetTimer(0.2,True);
 }
 
@@ -65,9 +38,28 @@ event Timer()
 	}
 }
 
-function SetSelection (ESpellSelection SSelection)
+function SetSelection (class<baseSpell> SSelection)
 {
   	CurrSelection = SSelection;
+}
+
+function array<Texture> GetSpellIcons (class<baseSpell> SpellClass)
+{
+	local int i;
+	local array<Texture> TextureResults;
+
+	for (i = 0; i < PlayerHarry.DuelingSpellIcons.Length; i++)
+	{
+		if (PlayerHarry.DuelingSpellIcons[i].MatchingSpell = SpellClass)
+		{
+			TextureResults[0] = PlayerHarry.DuelingSpellIcons[i].DuelSpellIcon;
+			TextureResults[1] = PlayerHarry.DuelingSpellIcons[i].DuelSpellSelectedIcon;
+
+			break;
+		}
+	}
+
+	return TextureResults;
 }
 
 function RenderHudItemManager (Canvas Canvas, bool bMenuMode, bool bFullCutMode, bool bHalfCutMode)
@@ -76,6 +68,7 @@ function RenderHudItemManager (Canvas Canvas, bool bMenuMode, bool bFullCutMode,
 	local int nIconX;
 	local int nIconY;
 	local Texture textureSpellIcon;
+	local array<Texture> TextureList;
 	
 	// Metallicafan212:	Scaling by height
 	local float HScale;
@@ -91,41 +84,17 @@ function RenderHudItemManager (Canvas Canvas, bool bMenuMode, bool bFullCutMode,
 	// Omega: Align and scale
 	AlignXToLeft(Canvas, nIconX);
 	nIconX = ApplyHUDScale(Canvas, nIconX);
-  
-	if ( CurrSelection == SSelection_Rictusempra )
+
+	for (i = 0; i < PlayerHarry.DuelSpellList.Length; i++)
 	{
-		textureSpellIcon = textureSpellRictusempraSel;
-	} 
-	else 
-	{
-		textureSpellIcon = textureSpellRictusempra;
+		TextureList = GetSpellIcons(PlayerHarry.DuelSpellList[i]);
+
+		textureSpellIcon = TextureList[PlayerHarry.DuelSpellList[i] == CurrSelection];
+
+		DrawSpellIcon(Canvas, fScaleFactor * HScale, textureSpellIcon, nIconX, nIconY, string(i + 1));
+		
+		nIconY += (textureSpellIcon.VSize + nSPACE_BETWEEN_ICONS) * fScaleFactor * HScale;
 	}
-	
-	DrawSpellIcon(Canvas, fScaleFactor * HScale, textureSpellIcon, nIconX, nIconY, "1");
-	nIconY += (textureSpellRictusempra.VSize + nSPACE_BETWEEN_ICONS) * fScaleFactor * HScale;
-  
-	if ( CurrSelection == SSelection_Mimblewimble )
-	{
-		textureSpellIcon = textureSpellMimblewimbleSel;
-	} 
-	else 
-	{
-		textureSpellIcon = textureSpellMimblewimble;
-	}
-  
-	DrawSpellIcon(Canvas, fScaleFactor * HScale, textureSpellIcon, nIconX, nIconY, "2");
-	nIconY += (textureSpellMimblewimble.VSize + nSPACE_BETWEEN_ICONS) * fScaleFactor * HScale;
-  
-	if ( CurrSelection == SSelection_Expelliarmus )
-	{
-		textureSpellIcon = textureSpellExpelliarmusSel;
-	} 
-	else 
-	{
-		textureSpellIcon = textureSpellExpelliarmus;
-	}
-	
-	DrawSpellIcon(Canvas, fScaleFactor * HScale, textureSpellIcon, nIconX, nIconY, "3");
 }
 
 function DrawSpellIcon (Canvas Canvas, float fScaleFactor, Texture textureSpellIcon, int nIconX, int nIconY, string strHotKey)

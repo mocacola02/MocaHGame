@@ -7,16 +7,6 @@ class Director extends Actor;
 var harry PlayerHarry;
 var baseConsole Console;
 
-function PreBeginPlay()
-{
-  Super.PreBeginPlay();
-  foreach AllActors(Class'harry',PlayerHarry)
-  {
-    // goto JL001A;
-	break;
-  }
-}
-
 function OnTouchEvent (Pawn Subject, Actor Object)
 {
   PlayerHarry.ClientMessage(string(Subject.Name) $ " touched " $ string(Object.Name));

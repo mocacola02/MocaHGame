@@ -447,7 +447,7 @@ exec function GiveSpell (string Str)
 
 exec function GiveAllSpells()
 {
-  harry(Viewport.Actor).AddAllSpellsToSpellBook();
+  harry(Viewport.Actor).ToggleSpellbookEnforcement();
 }
 
 exec function TakeAllSpells()
@@ -1278,7 +1278,7 @@ event bool KeyEvent (EInputKey Key, EInputAction Action, float Delta)
 				case IK_F9:
 					if ( bDebugMode )
 					{
-						harry(Viewport.Actor).AddAllSpellsToSpellBook();
+						harry(Viewport.Actor).ToggleSpellbookEnforcement();
 					}
 					break;
 				case IK_F10:
