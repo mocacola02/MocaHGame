@@ -38,9 +38,6 @@ var input byte bBroomAction;
 var input byte bDrinkWiggenwell;
 var input byte bSpellBallAction;
 var input byte bVendorReply;
-var input byte bDuelRictusempra;
-var input byte bDuelMimblewimble;
-var input byte bDuelExpelliarmus;
 var input byte bDuelCycleSpell;
 var input byte bSpellLessonLeft;
 var input byte bSpellLessonRight;
@@ -103,6 +100,7 @@ var(Sounds) Sound Die3;
 var(Sounds) Sound Die4;
 var(Sounds) Sound GaspSound;
 var(Sounds) Sound LandGrunt;
+var(Sounds) Sound EctoDamage;
 
 //-------------------------------------
 // HousePoints
@@ -150,6 +148,8 @@ var travel bool bHaveNimbus2001;
 var travel bool bHaveQArmor;
 
 var travel int nLastCardTypeSave;
+
+var(Weapon) Weapon DefaultWeapon;
 
 //-------------------------------------
 // Dueling
@@ -230,7 +230,10 @@ var travel string PreviousLevelName;
 var() bool bNoFallingDamage;
 var int iGameState;
 var bool bHarryKilled;
+var(Health) int ReviveHealth; // Moca: How much health to set if revived? Applies if Harry enters a level change while dead.
 var int PreviousHealth;
+var int EctoAmount;
+var bool bFlashCooldown;
 
 //-------------------------------------
 // Pending Deletion
@@ -506,32 +509,7 @@ function HandleDuelPlayerInput()
 			CurrentDuelSpell = 0;
 		}
 
-		Wand.CurrentSpell = DuelSpellList[CurrentDuelSpell];
-		Wand.StartGlowingWand(CurrentSpell);
-
-		PlaySound(DuelSpellSounds[CurrentDuelSpell]);
-	}
-	else if ( bDuelRictusempra == 1 )
-	{
-		SetDuelSpell(class'spellDuelRictusempra');
-	}
-	else if ( bDuelMimblewimble == 1 )
-	{
-		SetDuelSpell(class'spellDuelMimblewimble');
-	}
-	else if ( bDuelExpelliarmus == 1 )
-	{
-		SetDuelSpell(class'spellDuelExpelliarmus');
-	}
-
-	switch (CurrentDuelSpell)
-	{
-		case (0): DuelSpellSelector.SetSelection(DuelSpellSelector.ESpellSelection.SSelection_Rictusempra); break;
-		case (1): DuelSpellSelector.SetSelection(DuelSpellSelector.ESpellSelection.SSelection_Mimblewimble); break;
-		case (2): DuelSpellSelector.SetSelection(DuelSpellSelector.ESpellSelection.SSelection_Expelliarmus); break;
-		default:
-		Log("ERROR: Unrecognized spell for hud spell selector");
-		break;
+		SetDuelSpell(CurrentDuelSpell);
 	}
 }
 
@@ -550,143 +528,119 @@ function int GetDuelSpellIdx(baseSpell SpellClass)
 	return 0;
 }
 
-function SetDuelSpell(baseSpell SpellClass)
+exec function SetDuelSpell(int SpellIdx)
 {
-	CurrentDuelSpell = GetDuelSpellIdx(SpellClass);
+	CurrentDuelSpell = Clamp(SpellIdx,0,DuelSpellList.Length);
+
+	DuelSpellSelector.SetSelection(DuelSpellList[CurrentDuelSpell]);
+
 	Wand.CurrentSpell = DuelSpellList[CurrentDuelSpell];
 	Wand.StartGlowingWand(CurrentSpell);
 
 	PlaySound(DuelSpellSounds[CurrentDuelSpell]);
 }
 
+//-------------------------------------
+// Ecto
+//-------------------------------------
+
 function EctoRefAdd()
 {
-  if ( iEctoRefCount == 0 )
-  {
-    GroundSpeed = GroundEctoSpeed;
-    HarryAnimSet = HARRY_ANIM_SET_ECTO;
-    PlaySound(Sound'HPSounds.Ch2Skurge.ecto_damage',SLOT_Interact,,,,,,True);
-  }
-  iEctoRefCount++;
+	EctoAmount++;
+	EctoAmount = Clamp(EctoAmount,0,MAXINT);
+
+	if ( EctoAmount == 1 )
+	{
+		GroundSpeed = GroundEctoSpeed;
+		HarryAnimSet = HARRY_ANIM_SET_ECTO;
+		PlaySound(EctoDamage,SLOT_Interact,,,,,,True);
+	}
 }
 
 function EctoRefSub()
 {
-  if ( iEctoRefCount > 0 )
-  {
-    if ( iEctoRefCount == 1 )
-    {
-      GroundSpeed = GroundRunSpeed;
-      HarryAnimSet = HARRY_ANIM_SET_MAIN;
-      LeaveEcto();
-      bEctoFlashed = False;
-      StopSound(Sound'HPSounds.Ch2Skurge.ecto_damage',SLOT_Interact);
-    }
-    iEctoRefCount--;
-  }
+	EctoAmount--;
+	EctoAmount = Clamp(EctoAmount,0,MAXINT);
+
+	if ( EctoAmount <= 0)
+	{
+		GroundSpeed = GroundRunSpeed;
+		HarryAnimSet = HARRY_ANIM_SET_MAIN;
+		bFlashCooldown = False;
+		StopSound(EctoDamage,SLOT_Interact);
+	}
 }
 
-function SleepyAnimTimerAdd (int t)
-{
-  if ( iSleepyAnimTimer == 0 )
-  {
-    GroundSpeed = fSleepySpeed;
-    HarryAnimSet = HARRY_ANIM_SET_SLEEPY;
-  }
-  iSleepyAnimTimer += t;
-  if ( iSleepyAnimTimer > iMaxSleepyAnim )
-  {
-    iSleepyAnimTimer = iMaxSleepyAnim;
-  }
-}
-
-function SleepyAnimTimerSub()
-{
-  if ( iSleepyAnimTimer > 0 )
-  {
-    if ( iSleepyAnimTimer == 1 )
-    {
-      GroundSpeed = GroundRunSpeed;
-      HarryAnimSet = HARRY_ANIM_SET_MAIN;
-    }
-    iSleepyAnimTimer--;
-  }
-}
-
-function SetMaxSleepyAnim (float t)
-{
-  iMaxSleepyAnim = t;
-}
+//-------------------------------------
+// Web
+//-------------------------------------
 
 function WebAnimRefCountAdd()
 {
-  if ( iWebAnimRefCount == 0 )
-  {
-    GroundSpeed = fWebSpeed;
-  }
-  iWebAnimRefCount++;
+	WebAmount++;
+	WebAmount = Clamp(WebAmount,0,MAXINT);
+
+	if ( iWebAnimRefCount == 1 )
+	{
+		GroundSpeed = fWebSpeed;
+	}
 }
 
 function WebAnimRefCountSub()
 {
-  if ( iWebAnimRefCount > 0 )
-  {
-    if ( iWebAnimRefCount == 1 )
-    {
-      GroundSpeed = GroundRunSpeed;
-      LeaveEcto();
-    }
-    iWebAnimRefCount--;
-  } else //{
-    if ( iWebAnimRefCount < 0 )
-    {
-      iWebAnimRefCount = 0;
-    }
-  //}
+	WebAmount--;
+	WebAmount = Clamp(WebAmount,0,MAXINT);
+
+	if (WebAmount <= 0)
+	{
+		GroundSpeed = GroundRunSpeed;
+	}
 }
 
-function LeaveEcto()
-{
-  bPlayedEctoKnockBack = False;
-}
+//-------------------------------------
+// Misc. Functions
+//-------------------------------------
 
-function DestroyClass (string sInput)
+function DestroyClass (string ClassToDestroy)
 {
-  local name cname;
-  local Actor Act;
+	local name ClassN;
+	local Actor A;
 
-  cname = name(sInput);
-  foreach AllActors(Class'Actor',Act)
-  {
-    if ( Act.IsA(cname) )
-    {
-      ClientMessage("Destroying:" $ string(Act));
-      Act.Destroy();
-    }
-  }
+	ClassN = name(ClassToDestroy);
+	foreach AllActors(Class'Actor',A)
+	{
+		if ( A.IsA(ClassN) )
+		{
+			ClientMessage("Destroying:" $ string(A));
+			A.Destroy();
+		}
+	}
 }
 
 function ListGroups()
 {
-  local name cname;
-  local Actor Act;
+	local Actor A;
 
-  foreach AllActors(Class'Actor',Act)
-  {
-    ClientMessage(string(Act) $ " " $ string(Act.Group));
-  }
+	foreach AllActors(Class'Actor',A)
+	{
+		ClientMessage(string(A) $ " " $ string(A.Group));
+	}
 }
 
+//-------------------------------------
+// Saving & Loading
+//-------------------------------------
+
 event PreSaveGame()
-{    
-  PreviousLevelName = "";
-  SloMo(1.0);
-  CopyAllStatusFromManagerToHarry();
+{
+	PreviousLevelName = "";
+	SloMo(1.0);
+	CopyAllStatusFromManagerToHarry();
 }
 
 event PostSaveGame()
 {
-  bShowLoadingScreen = False;
+	bShowLoadingScreen = False;
 }
 
 function LoadLevel (string LevelName)
@@ -697,8 +651,6 @@ function LoadLevel (string LevelName)
 	{
 		if ( A.bPersistent )
 		{
-			// Metallicafan212:	Add some debug checks to prevent crashing
-			//					I'll look into fixing the actual issue with the binaries later (reading null memory!)
 			A.PersistentState = A.GetStateName();
 			
 			if(A.LeadingActor != None)
@@ -711,45 +663,47 @@ function LoadLevel (string LevelName)
 			Log("*!* " $ string(A) $ " P_SAVING: LeadingActor: " $ string(A.PersistentLeadingActor) $ " AnimSequence: " $ string(A.AnimSequence) $ " navP:" $ string(A.navP));
 		}
 	}
+
 	StopAllMusic(1.0);
 	ConsoleCommand("SavePActors");
 	HPConsole(Player.Console).ChangeLevel(LevelName,True);
-  
-	if ( InStr(Caps(LevelName),"STARTUP") > -1 )
-	{
-		HPConsole(Player.Console).menuBook.bGamePlaying = False;
-		HPConsole(Player.Console).menuBook.OpenBook("Main");
-		HPConsole(Player.Console).LaunchUWindow();
-	}
 }
 
 event PreClientTravel()
 {
-  local string TS;
-  local int TI;
+	local string TS;
+	local int TI;
 
-  TI = InStr(Level.LevelEnterText,".");
-  if ( TI == -1 )
-  {
-    TS = Level.LevelEnterText;
-  } else {
-    TS = Left(Level.LevelEnterText,TI);
-  }
-  Log("PreClientTravel: Cur Level Name:" $ Level.LevelEnterText);
-  if (  !bQueuedToSaveGame )
-  {
-    Log("PreClientTravel: Setting Previous Level Name:" $ PreviousLevelName);
-    cm("PreClientTravel: Setting Previous Level Name:" $ PreviousLevelName);
-    PreviousLevelName = TS;
-  }
-  ClearNonTravelStatus();
-  CopyAllStatusFromManagerToHarry();
-  if ( bHarryKilled && (GetHealthCount() < iMinHealthAfterDeath) )
-  {
-    cm("***Setting health to iMinHealthAfterDeath(" $ string(iMinHealthAfterDeath) $ ") because harry died before we loaded this level.");
-    SetHealth(iMinHealthAfterDeath);
-  }
-  bHarryKilled = False;
+	// Get level name
+	TI = InStr(Level.LevelEnterText,".");
+
+	if ( TI == -1 )
+	{
+		TS = Level.LevelEnterText;
+	}
+	else
+	{
+		TS = Left(Level.LevelEnterText,TI);
+	}
+
+	Log("PreClientTravel: Cur Level Name:" $ Level.LevelEnterText);
+
+	if ( !bQueuedToSaveGame )
+	{
+		Log("PreClientTravel: Setting Previous Level Name:" $ PreviousLevelName);
+		cm("PreClientTravel: Setting Previous Level Name:" $ PreviousLevelName);
+		PreviousLevelName = TS;
+	}
+
+	ClearNonTravelStatus();
+	CopyAllStatusFromManagerToHarry();
+
+	if ( bHarryKilled )
+	{
+		cm("***Setting health to iMinHealthAfterDeath(" $ string(iMinHealthAfterDeath) $ ") because harry died before we loaded this level.");
+		SetHealth(ReviveHealth);
+		bHarryKilled = False;
+	}
 }
 
 event TravelPostAccept()
@@ -764,9 +718,10 @@ event TravelPostAccept()
 	iGamestate = ConvertGameStateToNumber();
 	
 	Log("weapon is" $ string(Weapon));
+
 	if ( Inventory == None )
 	{
-		weap = Spawn(Class'baseWand',self);
+		weap = Spawn(DefaultWeapon,self);
 		weap.BecomeItem();
 		AddInventory(weap);
 		weap.WeaponSet(self);
@@ -777,16 +732,20 @@ event TravelPostAccept()
 	{
 		Log("not spawning weap");
 	}
+
 	CopyAllStatusFromHarryToManager();
 	StatusGroupWizardCards(managerStatus.GetStatusGroup(Class'StatusGroupWizardCards')).RemoveHarryOwnedCardsFromLevel(None);
+	
 	if ( Director != None )
 	{
 		Director.OnPlayerTravelPostAccept();
 	}
+
 	foreach AllActors(Class'Characters',Ch)
 	{
 		Ch.SetEverythingForTheDuel();
 	}
+
 	if ( PreviousLevelName != "" )
 	{
 		bFoundSmartStart = False;
@@ -796,12 +755,15 @@ event TravelPostAccept()
 			{
 				SetLocation(StartPoint.Location);
 				SetRotation(StartPoint.Rotation);
+
 				if ( StartPoint.bDoLevelSave )
 				{
 					harry(Level.PlayerHarryActor).SaveGame();
 				}
+
 				cm("***Found SmartStart from:" $ PreviousLevelName);
 				Log("***Found SmartStart from:" $ PreviousLevelName);
+
 				bFoundSmartStart = True;
 				break;
 			} 
@@ -812,6 +774,7 @@ event TravelPostAccept()
 		cm("***Failed to find SmartStart from:" $ PreviousLevelName);
 		Log("***Failed to find SmartStart from:" $ PreviousLevelName);
 	}
+
 	if ( bQueuedToSaveGame )
 	{
 		cm(" *-*-* Keep the loading screen ON because we *ARE* QueuedToSaveGame. At least until we are done saving.");
@@ -822,17 +785,16 @@ event TravelPostAccept()
 	{
 		cm(" *-*-* Turn OFF the loading screen because we are *NOT* QueuedToSaveGame.");
 		Log(" *-*-* Turn OFF the loading screen because we are *NOT* QueuedToSaveGame.");
+
 		bShowLoadingScreen = False;
 		
-		// Omega: Fix the cutscene skip state desyncing when loading into a save that was skipping
 		Log("Loading into save with cutscene skip state: " $HPHud(MyHud).managerCutScene.bShowFF);
 		if(HPHud(MyHud).managerCutScene.bShowFF)
 		{
 			HPConsole(Player.Console).StartFastForward();
 		}
 	}
-	
-	// Omega: FOV CHANGES
+
 	Cam.FOVChanged();
 }
 
@@ -841,29 +803,6 @@ function CopyAllStatusFromHarryToManager()
   CopyGenericStatusFromHarryToManager();
   CopyCardCardStatusFromHarryToManager();
 }
-
-/*
-function CopyGenericStatusFromHarryToManager()
-{
-  local StatusItem siCurr;
-  local int nStatusIdx;
-
-  nStatusIdx = 0;
-  if ( nStatusIdx < 30 )
-  {
-    if ( StatusSave[nStatusIdx].classGroup == None )
-    {
-      goto JL00C8;
-    }
-    siCurr = managerStatus.GetStatusItem(StatusSave[nStatusIdx].classGroup,StatusSave[nStatusIdx].classItem);
-    siCurr.nCount = StatusSave[nStatusIdx].nCount;
-    siCurr.nCurrCountPotential = StatusSave[nStatusIdx].nPotential;
-    siCurr.nMaxCount = StatusSave[nStatusIdx].nMaxCount;
-    nStatusIdx++;
-    goto JL0007;
-  }
-}
-*/
 
 function CopyGenericStatusFromHarryToManager()
 {
@@ -875,10 +814,10 @@ function CopyGenericStatusFromHarryToManager()
 	{
 		// Nothing more in our list.  Stop looping.
 		if (StatusSave[nStatusIdx].classGroup == None)
+		{
 			break;
+		}
 
-		// GetStatusItem will get the status item if it exists or create a new one if not.
-		// In either case, set the count and potential count for the desired status item.
 		siCurr = managerStatus.GetStatusItem(StatusSave[nStatusIdx].classGroup, StatusSave[nStatusIdx].classItem); 
 		siCurr.nCount = StatusSave[nStatusIdx].nCount;
 		siCurr.nCurrCountPotential = StatusSave[nStatusIdx].nPotential;
@@ -886,206 +825,115 @@ function CopyGenericStatusFromHarryToManager()
 	}
 }
 
-/*
-function CopyCardCardStatusFromHarryToManager()
-{
-  local StatusGroupWizardCards sgCards;
-  local StatusItemWizardCards siCards;
-  local int I;
-
-  sgCards = StatusGroupWizardCards(managerStatus.GetStatusGroup(Class'StatusGroupWizardCards'));
-  siCards = StatusItemWizardCards(sgCards.GetStatusItem(Class'StatusItemBronzeCards'));
-  I = 0;
-  if ( I < 50 )
-  {
-    siCards.SetCardData(I,BronzeCardSave[I].nCardId,BronzeCardSave[I].nCardOwner);
-    I++;
-    goto JL0045;
-  }
-  siCards = StatusItemWizardCards(sgCards.GetStatusItem(Class'StatusItemSilverCards'));
-  I = 0;
-  if ( I < 40 )
-  {
-    siCards.SetCardData(I,SilverCardSave[I].nCardId,SilverCardSave[I].nCardOwner);
-    I++;
-    goto JL00B5;
-  }
-  siCards = StatusItemWizardCards(sgCards.GetStatusItem(Class'StatusItemGoldCards'));
-  I = 0;
-  if ( I < 11 )
-  {
-    siCards.SetCardData(I,GoldCardSave[I].nCardId,GoldCardSave[I].nCardOwner);
-    I++;
-    goto JL0125;
-  }
-  sgCards.SetLastObtainedCardTypeAsInt(nLastCardTypeSave);
-}
-*/
 function CopyCardCardStatusFromHarryToManager()
 {
 	local StatusGroupWizardCards sgCards;
 	local StatusItemWizardCards  siCards;
 	local int                    i;
 
-	// Restore bronze card data.
 	sgCards = StatusGroupWizardCards(managerStatus.GetStatusGroup(class'StatusGroupWizardCards'));
+
+	// Restore bronze card data.
 	siCards = StatusItemWizardCards(sgCards.GetStatusItem(class'StatusItemBronzeCards'));
 	for (i=0; i<ArrayCount(BronzeCardSave); i++)
+	{
 		siCards.SetCardData(i, BronzeCardSave[i].nCardId, BronzeCardSave[i].nCardOwner);
+	}
 
 	// Restore silver card data.
 	siCards = StatusItemWizardCards(sgCards.GetStatusItem(class'StatusItemSilverCards'));
 	for (i=0; i<ArrayCount(SilverCardSave); i++)
+	{
 		siCards.SetCardData(i, SilverCardSave[i].nCardId, SilverCardSave[i].nCardOwner);
+	}
 
 	// Restore gold card data.
 	siCards = StatusItemWizardCards(sgCards.GetStatusItem(class'StatusItemGoldCards'));
 	for (i=0; i<ArrayCount(GoldCardSave); i++)
+	{
 		siCards.SetCardData(i, GoldCardSave[i].nCardId, GoldCardSave[i].nCardOwner);
+	}
 
 	// Restore last card group picked up
 	sgCards.SetLastObtainedCardTypeAsInt(nLastCardTypeSave);
-
-	// For debugging, display wizard card data to the console.
-	//sgCards.ShowCardData();		
 }
 
-function int getnumHousePointsHarry()
-{
-  return numHousePointsHarry;
-}
-
-function int getLastHousePointsHarry()
-{
-  return numLastHousePointsHarry;
-}
-
-function int getNumHousePointsGryffindor()
-{
-  return numHousePointsGryffindor;
-}
-
-function int getNumHousePointsSlytherin()
-{
-  return numHousePointsSlytherin;
-}
-
-function int getNumHousePointsHufflePuff()
-{
-  return numHousePointsHufflepuff;
-}
-
-function int getNumHousePointsRavenclaw()
-{
-  return numHousePointsRavenclaw;
-}
-
-function SaveStateName()
-{
-  ClientMessage("Harry state " $ string(GetStateName()) $ " " $ string(LastState));
-  if ( GetStateName() != 'PickingUpWizardCard' )
-  {
-    LastState = GetStateName();
-  }
-}
-
-function RestoreStateName()
-{
-  GotoState(LastState);
-}
+//-------------------------------------
+// Carrying & Throwing
+//-------------------------------------
 
 function SetCarryingActor (Actor A, optional name nameBone)
 {
-  if ( nameBone == 'None' )
-  {
-    nameBone = 'WeaponRight';
-  }
-  CarryingActor = A;
-  if ( CarryingActor != None )
-  {
-    if ( nameBone == 'WeaponRight' )
-    {
-      Weapon.bHidden = True;
-    }
-    HarryAnimType = AT_Combine;
-    CarryingActor.SetCollision(False,False,False);
-    CarryingActor.SetOwner(self);
-    CarryingActor.AttachToOwner(nameBone);
-    CarryingActor.bRotateToDesired = False;
-  } else {
-    ClientMessage("******* Dont allow this case   SetCarryingActor *******");
-    Weapon.bHidden = False;
-  }
-  bThrow = False;
+	if ( nameBone == 'None' )
+	{
+		nameBone = 'WeaponRight';
+	}
+
+	if (A == None)
+	{
+		return;
+	}
+
+	CarryingActor = A;
+
+	if ( CarryingActor != None )
+	{
+		if ( nameBone == 'WeaponRight' )
+		{
+			Weapon.bHidden = True;
+		}
+
+		HarryAnimType = AT_Combine;
+		CarryingActor.SetCollision(False,False,False);
+		CarryingActor.SetOwner(self);
+		CarryingActor.AttachToOwner(nameBone);
+		CarryingActor.bRotateToDesired = False;
+	}
+	else
+	{
+		ClientMessage("******* Dont allow this case   SetCarryingActor *******");
+		Weapon.bHidden = False;
+	}
+
+	bThrow = False;
 }
 
-function bool InFrontOfHarry (Actor A)
-{
-  local Vector cdir;
-  local Vector adir;
-  //local float Cos;
-  local float fCos;
-  local float cdirsize;
-  local float adirsize;
-
-  if ( VSize(Location - A.Location) > 512 )
-  {
-    return False;
-  }
-  if ( Abs(Location.Z - A.Location.Z) > 128 )
-  {
-    return False;
-  }
-  cdir = Cam.vForward;
-  cdir.Z = 0.0;
-  adir = A.Location - Location;
-  adir.Z = 0.0;
-  cdirsize = VSize2D(cdir);
-  adirsize = VSize2D(adir);
-  // Cos = cdir Dot adir / cdirsize * adirsize; 
-  fCos = (cdir Dot adir) / (cdirsize * adirsize); //UTPT forgot to add brackets -AdamJD
-  if ( fCos > 0.5 )
-  {
-    return True;
-  }
-  return False;
-}
-
+// Used for accurate throwing
 function Actor FindClosestTargetPoint()
 {
-  local TargetPoint ClosestTP;
-  local TargetPoint CurrTP;
-  local float fClosestDist;
-  local float fDist;
+	local TargetPoint ClosestTP;
+	local TargetPoint CurrTP;
+	local float fClosestDist;
+	local float fDist;
 
-  ClosestTP = None;
-  fClosestDist = 999999.0;
-  foreach AllActors(Class'TargetPoint',CurrTP)
-  {
-    if ( InFrontOfHarry(CurrTP) )
-    {
-      fDist = VSize(CurrTP.Location - Location);
-      if ( fDist < fClosestDist )
-      {
-        ClosestTP = CurrTP;
-        fClosestDist = fDist;
-      }
-    }
-  }
-  return ClosestTP;
+	ClosestTP = None;
+	fClosestDist = 999999.0;
+	foreach AllActors(Class'TargetPoint',CurrTP)
+	{
+		if ( InFrontOfHarry(CurrTP) )
+		{
+		fDist = VSize(CurrTP.Location - Location);
+		if ( fDist < fClosestDist )
+		{
+			ClosestTP = CurrTP;
+			fClosestDist = fDist;
+		}
+		}
+	}
+	return ClosestTP;
 }
 
 function Actor AccurateThrowing (Actor A)
 {
-  //local Actor Target;
-  local Actor aTarget;
+	//local Actor Target;
+	local Actor aTarget;
 
-  if (  !HPawn(A).bAccurateThrowing )
-  {
-    return None;
-  }
-  aTarget = FindClosestTargetPoint();
-  return aTarget;
+	if (  !HPawn(A).bAccurateThrowing )
+	{
+		return None;
+	}
+	aTarget = FindClosestTargetPoint();
+	return aTarget;
 }
 
 function HarryAccurateThrowObject (Actor A, Actor Target, bool bCollideActors, bool bCollideWorld)
@@ -1599,16 +1447,18 @@ function AddHealth (int iHealth)
 
 function int GetHealthCount()
 {
-  local StatusItem siHealth;
+	local StatusItem siHealth;
 
-  siHealth = GetHealthStatusItem();
-  if ( siHealth != None )
-  {
-    return siHealth.nCount;
-  } else {
-    Log("Error getting health status item");
-    return 0;
-  }
+	siHealth = GetHealthStatusItem();
+	if ( siHealth != None )
+	{
+		return siHealth.nCount;
+	}
+	else
+	{
+		Log("Error getting health status item");
+		return 0;
+	}
 }
 
 function float GetHealth()
@@ -2165,7 +2015,7 @@ function TakeDamage (int Damage, Pawn InstigatedBy, Vector HitLocation, Vector M
       {
         bFallDamage = True;
       }
-      if ( iEctoRefCount > 0 )
+      if ( EctoAmount > 0 )
       {
         if (  !bPlayedEctoKnockBack || ( ++iEctoHurtSoundCount >= 6) )
         {
@@ -2193,7 +2043,7 @@ function TakeDamage (int Damage, Pawn InstigatedBy, Vector HitLocation, Vector M
         }
       }
       bPlayKnockBack = True;
-      if ( iEctoRefCount > 0 )
+      if ( EctoAmount > 0 )
       {
         if ( bPlayedEctoKnockBack )
         {
@@ -2201,7 +2051,7 @@ function TakeDamage (int Damage, Pawn InstigatedBy, Vector HitLocation, Vector M
         }
         bPlayedEctoKnockBack = True;
       }
-      if ( iEctoRefCount > 0 )
+      if ( EctoAmount > 0 )
       {
         if ( bPlayedEctoKnockBack )
         {
@@ -2300,7 +2150,7 @@ simulated function PlayFootStep()
       return;
     }
   //}
-  if ( iEctoRefCount > 0 )
+  if ( EctoAmount > 0 )
   {
     Footstep1 = Sound'HAR_foot_ecto1';
     Footstep2 = Sound'HAR_foot_ecto2';
@@ -2410,7 +2260,7 @@ function DoJump (optional float f)
 	{
 		return;
 	}
-	if ( iEctoRefCount > 0 )
+	if ( EctoAmount > 0 )
 	{
 		PlayAnim(HarryAnims[HarryAnimSet].Jump,,[TweenTime]0.1,[Type]HarryAnimType);
 		HarryAnimChannel.DoEctoJump();

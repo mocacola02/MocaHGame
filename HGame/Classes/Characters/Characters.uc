@@ -544,6 +544,7 @@ event Tick (float fDeltaTime)
       fLureTick = 0.0;
       if ( VSize2D(Level.PlayerHarryActor.Location - Location) <= nLureDistance )
       {
+		// Moca: I feel like we should change these sight functions to be here and more dynamic. I'm removing them from harry.
         if ( !bInLureRange && HaveSomethingToSell() && harry(Level.PlayerHarryActor).LineOfSightTo(self) && harry(Level.PlayerHarryActor).InFrontOfHarry(self) && !HPHud(harry(Level.PlayerHarryActor).myHUD).IsCutSceneOrPopupInProgress() )
         {
           bInLureRange = True;
