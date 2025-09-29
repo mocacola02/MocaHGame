@@ -739,38 +739,6 @@ function HandleFastForward()
 	}
 }
 
-function doLevelSave (int I)
-{
-	local string savePauser;
-	local PlayerPawn PlayerPawn;
-	local GameSaveInfo GameSaveInfo;
-	local int N;
-	local int savePointID;
-
-	harry(Viewport.Actor).SloMo(1.0);
-	PlayerPawn = Viewport.Actor;
-	savePauser = PlayerPawn.Level.Pauser;
-	PlayerPawn.Level.Pauser = "";
-	PlayerPawn.SaveGame();
-	PlayerPawn.Level.Pauser = savePauser;
-	GameSaveInfo = new class'GameSaveInfo';
-	N = InStr(PlayerPawn.Level.LevelEnterText,".");
-	if ( N == -1 )
-	{
-		GameSaveInfo.currentLevelString = PlayerPawn.Level.LevelEnterText;
-	} 
-	else 
-	{
-		GameSaveInfo.currentLevelString = Left(PlayerPawn.Level.LevelEnterText,N);
-	}
-	Log("LevelSave: Level Name is" $ GameSaveInfo.currentLevelString);
-	savePointID = -1;
-	savePointID = harry(Viewport.Actor).FindNearestSavePointID();
-	Log("Found Savepoint ID = " $ string(savePointID));
-	GameSaveInfo.savePointID = savePointID;
-	PlayerPawn.SaveGameSaveInfo("GameSaveInfo" $ string(I),GameSaveInfo);
-}
-
 exec function LangBrowser()
 {
   	menuBook.OpenBook("Lang");

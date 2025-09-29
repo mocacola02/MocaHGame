@@ -81,12 +81,34 @@ struct cHarryAnims
   var name Land;
 };
 
+var(Animations) name FaintAnim;
+
 var array<cHarryAnims> HarryAnims;
 var enumHarryAnimSet HarryAnimSet;
 var cHarryAnimChannel HarryAnimChannel;
 var EAnimType HarryAnimType;
 
 var float LastAnimFrame;
+
+//-------------------------------------
+// Health
+//-------------------------------------
+enum eDeathTypes
+{
+	DEATH_Instant,
+	DEATH_Slow,
+	DEATH_Fast,
+	DEATH_Hidden
+};
+
+var eDeathTypes DeathType;
+var name LastDamageType;
+
+var(Health) int ReviveHealth; // Moca: How much health to set if revived? Applies if Harry enters a level change while dead.
+var(Health) bool bNoFallingDamage;
+
+var bool bHarryKilled;
+var int PreviousHealth;
 
 //-------------------------------------
 // Sound
@@ -101,6 +123,9 @@ var(Sounds) Sound Die4;
 var(Sounds) Sound GaspSound;
 var(Sounds) Sound LandGrunt;
 var(Sounds) Sound EctoDamage;
+var(Sounds) array<Sound> PotionMixingSounds;
+var Sound SelectedMixingSound;
+var float MixingSoundDuration;
 
 //-------------------------------------
 // HousePoints
@@ -220,6 +245,7 @@ var BaseCam Cam;
 var FEBook menuBook;
 var HPawn CarryingActor;
 var CauldronMixing ActiveCauldron;
+var baseBoss BossTarget;
 
 //-------------------------------------
 // Misc. Travel
@@ -229,13 +255,10 @@ var travel string PreviousLevelName;
 //-------------------------------------
 // Miscellaneous
 //-------------------------------------
-var() bool bNoFallingDamage;
 var int iGameState;
-var bool bHarryKilled;
-var(Health) int ReviveHealth; // Moca: How much health to set if revived? Applies if Harry enters a level change while dead.
-var int PreviousHealth;
 var int EctoAmount;
 var bool bFlashCooldown;
+var() class<HUD> HUDToUse;
 
 //-------------------------------------
 // Pending Deletion
@@ -257,6 +280,7 @@ event PreBeginPlay()
 	GetDirector();
 	GetStatusManager();
 
+	HUDType = HUDToUse;
 	menuBook = HPConsole(Player.Console).menuBook;
 }
 
@@ -1068,18 +1092,18 @@ state statePickupItem
 
 function DoPotionMixingEnd()
 {
-  CutCue("MixingCauldronDone");
-  bKeepStationary = False;
-  ActiveCauldron = None;
-  if (  !bIsCaptured )
-  {
-    GotoState('PlayerWalking');
-  }
+	CutCue("MixingCauldronDone");
+	bKeepStationary = False;
+	ActiveCauldron = None;
+	if (  !bIsCaptured )
+	{
+		GotoState('PlayerWalking');
+	}
 }
 
 function bool IsMixingPotion()
 {
-  return IsInState('statePotionMixingBegin') || IsInState('statePotionMixingStir') || IsInState('statePotionMixingIdle');
+	return IsInState('statePotionMixingBegin') || IsInState('statePotionMixingStir') || IsInState('statePotionMixingIdle');
 }
 
 state statePotionMixingBegin
@@ -1092,175 +1116,109 @@ state statePotionMixingBegin
 	}
 	
 	begin:
-	CurrIdleAnimName = GetCurrIdleAnimName();
-	LoopAnim(CurrIdleAnimName,,[TweenTime]0.4,,[Type]HarryAnimType);
+		CurrIdleAnimName = GetCurrIdleAnimName();
+		LoopAnim(CurrIdleAnimName,,[TweenTime]0.4,,[Type]HarryAnimType);
 }
 
 state statePotionMixingStir
 {
-  function EndState()
-  {
-    StopSound(soundStirPotion,SLOT_Interact);
-  }
-  
-  begin:
-  TurnToward(ActiveCauldron);
-  LoopAnim('MixPotion',,,,[Type]HarryAnimType);
-  switch (Rand(4))
-  {
-    case 0:
-    soundStirPotion = Sound'cauldron_stir_loop';
-    break;
-    case 1:
-    soundStirPotion = Sound'cauldron_stir_loop2';
-    break;
-    case 2:
-    soundStirPotion = Sound'cauldron_stir_loop3';
-    break;
-    case 3:
-    soundStirPotion = Sound'cauldron_stir_loop4';
-    break;
-    default:
-  }
-  fStirSoundDuration = GetSoundDuration(soundStirPotion);
-  loop:
-  PlaySound(soundStirPotion,SLOT_Interact);
-  Sleep(fStirSoundDuration);
-  goto ('Loop');
+	function EndState()
+	{
+		StopSound(soundStirPotion,SLOT_Interact);
+	}
+	
+	begin:
+		TurnToward(ActiveCauldron);
+
+		LoopAnim('MixPotion',,,,[Type]HarryAnimType);
+
+		SelectedMixingSound = PotionMixingSounds[Rand(PotionMixingSounds.Length)];
+
+		MixingSoundDuration = GetSoundDuration(soundStirPotion);
+
+	loop:
+		PlaySound(soundStirPotion,SLOT_Interact);
+
+		Sleep(MixingSoundDuration);
+
+		goto ('Loop');
 }
 
 state statePotionMixingIdle
 {
-begin:
-  CurrIdleAnimName = GetCurrIdleAnimName();
-  LoopAnim(CurrIdleAnimName,,[TweenTime]0.4,, [Type]HarryAnimType);
+	begin:
+		CurrIdleAnimName = GetCurrIdleAnimName();
+		LoopAnim(CurrIdleAnimName,,[TweenTime]0.4,, [Type]HarryAnimType);
 }
 
 function GotoLocation (Vector newLoc)
 {
-  newLoc.Z = newLoc.Z + CollisionHeight;
-  SetLocation(newLoc);
-  fHighestZ = Location.Z;
+	newLoc.Z = newLoc.Z + CollisionHeight;
+	SetLocation(newLoc);
+	fHighestZ = Location.Z;
 }
 
-function GotoShortcut (int Num)
-{
-  local navShortcut sc;
-  local int Count;
-  local Vector newLoc;
-
-  if ( Num < 0 )
-  {
-    Num = ShortCutNum++ ;
-  }
-  Count = 0;
-  foreach AllActors(Class'navShortcut',sc)
-  {
-    if ( Count == Num )
-    {
-      newLoc = sc.Location;
-      newLoc.Z = newLoc.Z + CollisionHeight;
-      SetLocation(newLoc);
-      fHighestZ = Location.Z;
-    }
-    Count++;
-  }
-  if ( ShortCutNum >= Count )
-  {
-    ShortCutNum = 0;
-  }
-}
-
-function int FindNearestSavePointID()
-{
-  local Actor SavePointInstance;
-  local int ReturnID;
-  local string Str;
-  local int SearchStrLen;  
-
-  ReturnID = -1;
-  SearchStrLen = Len("savepoint");
-  foreach RadiusActors(Class'Actor',SavePointInstance,50.0,Location)
-  {
-    Log("Found Actor In Radius = " $ string(SavePointInstance.Name));
-    if ( SavePointInstance.IsA('SavePoint') )
-    {
-      Log("Found Savepoint = " $ string(SavePointInstance.Name));
-      Str = Mid(string(SavePointInstance.Name),SearchStrLen);
-      Log("Found ID Str = " $ Str);
-      ReturnID = int(Str);
-	  break;
-    }
-  }
-  return ReturnID;
-}
+//-------------------------------------
+// Death
+//-------------------------------------
+function vector FindFaintLocation();
 
 function KillHarry (bool bImmediateDeath)
 {
-  ClientMessage("argghhh I'm Dead!!!!   in KillHarry");
-  if ( Director != None )
-  {
-    Director.OnPlayerDying();
-  }
-  if ( baseBoss(BossTarget) != None )
-  {
-    StopBossEncounter();
-  }
-  if ( (baseBoss(BossTarget) != None) && (baseBoss(BossTarget).TrigEventWhenVictor != '') )
-  {
-    baseBoss(BossTarget).SendVictoriousTrigger();
-  } else {
-    bAllowHarryToDie = bImmediateDeath;
-    GotoState('stateDead');
-  }
-}
+	ClientMessage("argghhh I'm Dead!!!!   in KillHarry");
 
-function KillHarryWithClub (bool bImmediateDeath, Actor A)
-{
-  local int Yaw;
-  local Rotator R;
+	if ( BossTarget != None )
+	{
+		StopBossEncounter();
+	}
 
-  bClubDeath = True;
-  KillHarry(bImmediateDeath);
-  Yaw = A.Rotation.Yaw;
-  Yaw += 65536 / 4;
-  R = Rotation;
-  R.Yaw = Yaw;
-  SetRotation(R);
-  DesiredRotation = R;
+	if ( (BossTarget != None) && (BossTarget.TrigEventWhenVictor != '') )
+	{
+		BossTarget.SendVictoriousTrigger();
+	}
+	
+	else
+	{
+		if(bImmediateDeath)
+		{
+			DeathType = DEATH_Instant;
+		}
+
+		GotoState('stateDead');
+	}
 }
 
 function Died (Pawn Killer, name DamageType, Vector HitLocation)
 {
-  cm("Harry 'Died' function called by '" $ string(Killer) $ "' routing to TakeDamage...");
-  TakeDamage(10000,None,Location,vect(0.00,0.00,0.00),'Crushed');
+	cm("Harry 'Died' function called by '" $ string(Killer) $ "' routing to TakeDamage...");
+	TakeDamage(10000,None,Location,vect(0.00,0.00,0.00),'Crushed');
 }
 
 state stateDead
 {
-  ignores  TakeDamage, AltFire, Tick, Fire;
-  
-  function BeginState()
-  {
-    local float fAnimRate;
-  
-    if ( Director != None )
-    {
-      Director.OnPlayersDeath();
-    }
-    fAnimRate = 1.0;
-    if ( bClubDeath )
-    {
-      fAnimRate = 1.5;
-    }
-    Velocity.X = 0.0;
-    Velocity.Y = 0.0;
-    Acceleration = vect(0.00,0.00,0.00);
-    PlayAnim('faint',fAnimRate,0.2);
-    if ( bClubDeath )
-    {
-      AnimFrame = 36.0 / 151.0;
-    }
+	ignores  TakeDamage, AltFire, Tick, Fire;
+	
+	function BeginState()
+	{
+		local float fAnimRate;
+		
+		fAnimRate = 1.0;
+
+		if ( LastDamageType == DEATH_Fast )
+		{
+			fAnimRate = 1.5;
+		}
+
+		Velocity.X = 0.0;
+		Velocity.Y = 0.0;
+		Acceleration = vect(0.00,0.00,0.00);
+
+		PlayAnim(FaintAnim,fAnimRate,0.2);
+
+		if ( DeathType == DEATH_Fast )
+		{
+			AnimFrame = 36.0 / 151.0;
+		}
   }
   
   function vector FindFaintLocation()
@@ -1272,8 +1230,6 @@ state stateDead
 
 		CheckDist = 70;  //70 seems to keep his head snug against the wall...
 		d = CheckDist;
-		//ClientMessage("********* Location:"$Location);
-		//ClientMessage("*********        n:"$vector(rotation));
 
 		vSave = Location;
 
@@ -1297,7 +1253,7 @@ state stateDead
 
 			d -= 10;
 
-		}until( d <= 0 );
+		} until( d <= 0 );
 
 		if( d <= 0 )
 		{
@@ -1307,14 +1263,9 @@ state stateDead
 
 		SetLocation( vSave );
 
-		//ClientMessage("*********        d1:"$d);
-
 		//If d is 0, then there's full room to fall down, return where we're at
 		//Actually, lets make it at least 20, so he falls more in place.
-		if( d < 20 )
-			d = 20;
-		//if( d == 0 )
-		//	return Location;
+		d = Clamp(d, 20, MAXINT);
 
 		//No see if there's room to move away from the obstruction.  We need to move away only as far as we have to.
 		// d is already set to the amount we need to move.
@@ -1333,14 +1284,11 @@ state stateDead
 				break;
 			}
 
-
 			//See if we can go down.  We dont want to fall off a ledge.
 			MoveSmooth( vect(0,0,-20) );
-			//ClientMessage("********** d:"$d$" trye zdelt");
 
 			if( v.z - Location.z > 19 )
 			{
-				//ClientMessage("********** d:"$d$" zdelt was over 19");
 				v = vLast;
 				break;
 			}
@@ -1350,80 +1298,84 @@ state stateDead
 
 			d -= 10;
 
-		}until( d <= 0 );
-		//ClientMessage("*********        d2:"$d$" v:"$v);
+		} until( d <= 0 );
 
 		SetLocation( vSave );
 
-		//v should now be where we're moving to...
 		return v;
   }
     
   begin:
-  RotationRate.Yaw = 0;
-  AccelRate = 70.0;
-  if (  !bInstantDeath )
-  {
-    PlayDeathEmoteSound();
-    Sleep(0.666);
-    MoveTo(FindFaintLocation());
-  }
-  Velocity = vect(0.00,0.00,0.00);
-  Acceleration = vect(0.00,0.00,0.00);
-  if ( bInstantDeath )
-  {
-    Sleep(0.5);
-  } else {
-    FinishAnim();
-    Sleep(0.5);
-  }
-  if ( bSlowDeath )
-  {
-    Sleep(1.5);
-  }
-  loop:
-  if ( bAllowHarryToDie )
-  {
-    ConsoleCommand("LoadGame 0");
-  }
-  Sleep(0.1);
-  goto ('Loop');
+		RotationRate.Yaw = 0;
+		AccelRate = 70.0;
+
+		if (  !DeathType == DEATH_Instant )
+		{
+			PlayDeathEmoteSound();
+			Sleep(0.666);
+			MoveTo(FindFaintLocation());
+		}
+
+		Velocity = vect(0.00,0.00,0.00);
+		Acceleration = vect(0.00,0.00,0.00);
+
+		if ( DeathType == DEATH_Instant )
+		{
+			Sleep(0.5);
+		}
+		else
+		{
+			FinishAnim();
+			Sleep(0.5);
+		}
+
+		if ( DeathType == DEATH_Slow )
+		{
+			Sleep(1.5);
+		}
+
+		ConsoleCommand("LoadGame 0");
 }
 
 state stateInactive
 {
-  ignores  DoJump, AltFire, Fire, TakeDamage;
+	ignores  DoJump, AltFire, Fire, TakeDamage;
 }
 
 function StatusItem GetHealthStatusItem()
 {
-  return (managerStatus.GetStatusItem(Class'StatusGroupHealth',Class'StatusItemHealth'));
+	return (managerStatus.GetStatusItem(Class'StatusGroupHealth',Class'StatusItemHealth'));
 }
 
 function SetHealth (int iHealth)
 {
-  local StatusItem siHealth;
+	local StatusItem siHealth;
 
-  siHealth = GetHealthStatusItem();
-  if ( siHealth != None )
-  {
-    siHealth.SetCount(iHealth);
-  } else {
-    Log("Error getting health status item");
-  }
+	siHealth = GetHealthStatusItem();
+	if ( siHealth != None )
+	{
+		siHealth.SetCount(iHealth);
+	}
+	else
+	{
+		Log("Error getting health status item");
+	}
 }
 
 function AddHealth (int iHealth)
 {
-  local StatusItem siHealth;
+	local StatusItem siHealth;
 
-  siHealth = GetHealthStatusItem();
-  if ( siHealth != None )
-  {
-    siHealth.IncrementCount(iHealth);
-  } else {
-    Log("Error getting health status item");
-  }
+	siHealth = GetHealthStatusItem();
+
+	if ( siHealth != None )
+	{
+		siHealth.IncrementCount(iHealth);
+	}
+	else
+	{
+		Log("Error getting health status item");
+	}
 }
 
 function int GetHealthCount()
@@ -1444,43 +1396,51 @@ function int GetHealthCount()
 
 function float GetHealth()
 {
-  return (GetHealthStatusItem().GetCountToCurrPotentialRatio());
+	return (GetHealthStatusItem().GetCountToCurrPotentialRatio());
 }
 
 function AddGryffindorPoints (int iPoints)
 {
-  managerStatus.IncrementCount(Class'StatusGroupHousePoints',Class'StatusItemGryffindorPts',iPoints);
+	managerStatus.IncrementCount(Class'StatusGroupHousePoints',Class'StatusItemGryffindorPts',iPoints);
 }
 
-function int JellyBeansCount()
+function int CollectibleCount(optional class<HCollectible> CollectibleClass)
 {
-  local StatusGroup sg;
-  local int Count;
+	local class<StatusGroup> sgClass;
+	local class<StatusItem> siClass;
+	local StatusGroup sg;
+	local int Count;
 
-  sg = managerStatus.GetStatusGroup(Class'StatusGroupJellybeans');
-  Count = sg.GetStatusItem(Class'StatusItemJellybeans').nCount;
-  return Count;
+	if(CollectibleClass == None)
+	{
+		CollectibleClass = Class'Jellybean';
+		sgClass = Class'StatusGroupJellybeans';
+		siClass = Class'StatusItemJellybeans';
+	}
+	else
+	{
+		sgClass = Default.CollectibleClass.classStatusGroup;
+		siClass = Default.CollectibleClass.classStatusItem;
+	}
+
+	sg = managerStatus.GetStatusGroup(sgClass);
+	Count = sg.GetStatusItem(siClass).nCount;
+	return Count;
 }
 
 function int PotionsCount()
 {
-  local StatusGroup sg;
-  local int Count;
+	local StatusGroup sg;
+	local int Count;
 
-  sg = managerStatus.GetStatusGroup(Class'StatusGroupPotions');
-  Count = sg.GetStatusItem(Class'StatusItemWiggenwell').nCount;
-  return Count;
+	sg = managerStatus.GetStatusGroup(Class'StatusGroupPotions');
+	Count = sg.GetStatusItem(Class'StatusItemWiggenwell').nCount;
+	return Count;
 }
 
 function managerStatus_PickupItem (HProp Item)
 {
-  if ( Item.IsA('Jellybean') && (TriggerToSendOnFirstBean != '') )
-  {
-    ClientMessage("slkdjflsdkj sdlkfj sldkfj sldkj fsldkf jsdlkf jsdlfk j");
-    TriggerEvent(TriggerToSendOnFirstBean,self,self);
-    TriggerToSendOnFirstBean = '';
-  }
-  managerStatus.PickupItem(Item);
+	managerStatus.PickupItem(Item);
 }
 
 function AddJellyBeansPoints (int iPoints)
@@ -1490,7 +1450,7 @@ function AddJellyBeansPoints (int iPoints)
   {
     return;
   }
-  if ( (iPoints < 0) && (JellyBeansCount() == 0) )
+  if ( (iPoints < 0) && (CollectibleCount() == 0) )
   {
     return;
   }
@@ -1925,6 +1885,8 @@ function TakeDamage (int Damage, Pawn InstigatedBy, Vector HitLocation, Vector M
   {
     return;
   }
+
+  LastDamageType = DamageType;
   
   bPlayHurtSound = True;
   fDamageScaled = Damage;

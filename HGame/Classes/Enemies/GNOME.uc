@@ -569,7 +569,7 @@ function bool HarryHasSomeStuff()
 {
   local int stuff;
 
-  stuff = PlayerHarry.JellyBeansCount();
+  stuff = PlayerHarry.CollectibleCount();
   if ( stuff > 0 )
   {
     return True;
@@ -623,7 +623,7 @@ function Bump (Actor Other)
   {
     return;
   }
-  beans = PlayerHarry.JellyBeansCount();
+  beans = PlayerHarry.CollectibleCount();
   GetSomethingFromHarry(beans,0);
   GotoState('stateGoSomeWhere');
 }

@@ -30,7 +30,7 @@ var int iPotionCount;				// Moca: How many potions to make when mixing. Determin
 
 var Vector vTopOfCauldron;			// Moca: Location of the top of the cauldron.
 
-var HProp propTemp;					// Moca: HProp reference for the HUD fly effect.
+var HCollectible propTemp;					// Moca: HProp reference for the HUD fly effect.
 
 // Moca: StatusGroup/Item refs.
 var StatusGroup sgPotionIngr;
@@ -245,18 +245,20 @@ state Mixing
 		local Vector vFlobberHudLoc;
 
 		vFlobberHudLoc = sgPotionIngr.GetItemLocation(Class'StatusItemFlobberMucus',False);
-		propTemp = HProp(FancySpawn(Class'FlobberwormMucus',,,vFlobberHudLoc));
+		propTemp = HCollectible(FancySpawn(Class'FlobberwormMucus',,,vFlobberHudLoc));
 		propTemp.fMinFlyToHudScale = 0.1;
 		propTemp.fMaxFlyToHudScale = 0.4;
-		propTemp.DoDropOffProp(vTopOfCauldron,True);
+		propTemp.DropOffLoc = vTopOfCauldron;
+		propTemp.DoPickupProp(True);
 	}
 
 	function HandlePropFly(Vector HudLoc, class<PotionIngredients> IngredClass)
 	{
-		propTemp = HProp(FancySpawn(IngredClass,,,HudLoc));
+		propTemp = HCollectible(FancySpawn(IngredClass,,,HudLoc));
 		propTemp.fMinFlyToHudScale = 0.1;
 		propTemp.fMaxFlyToHudScale = 0.4;
-		propTemp.DoDropOffProp(vTopOfCauldron,True);
+		propTemp.DropOffLoc = vTopOfCauldron;
+		propTemp.DoPickupProp(True);
 	}
 	
 	begin:
@@ -282,7 +284,7 @@ state Mixing
 		
 		for(I = 0; I < iPotionCount; I++)
 		{
-			propTemp = HProp(FancySpawn(Class'WWellCauldronBottle',,,vTopOfCauldron));
+			propTemp = HCollectible(FancySpawn(Class'WWellCauldronBottle',,,vTopOfCauldron));
 			Sleep(0.25);
 			propTemp.fTotalFlyTime = 0.5;
 			propTemp.fMinFlyToHudScale = 0.8;

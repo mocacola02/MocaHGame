@@ -103,16 +103,6 @@ function OnPlayerTravelPostAccept()
   Log("Player processed TravelPostAccept event");
 }
 
-function OnPlayerDying()
-{
-  PlayerHarry.ClientMessage("Player dying...");
-}
-
-function OnPlayersDeath()
-{
-  PlayerHarry.ClientMessage("Director: Player died");
-}
-
 function OnActionKeyPressed()
 {
   PlayerHarry.ClientMessage("Action key pressed");

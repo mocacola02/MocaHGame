@@ -11,5 +11,4 @@ auto state BounceIntoPlace
 defaultproperties
 {
     bBlockCamera=False
-
 }
