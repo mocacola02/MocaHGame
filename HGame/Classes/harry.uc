@@ -1197,32 +1197,30 @@ function Died (Pawn Killer, name DamageType, Vector HitLocation)
 state stateDead
 {
 	ignores  TakeDamage, AltFire, Tick, Fire;
-	
+
 	function BeginState()
 	{
-		local float fAnimRate;
-		
-		fAnimRate = 1.0;
+		local float AnimRate;
+		AnimRate = 1.0;
+
+		Velocity *= vect(0.0,0.0,1.0);
+		Acceleration = vect(0.0,0.0,0.0);
 
 		if ( LastDamageType == DEATH_Fast )
 		{
-			fAnimRate = 1.5;
+			AnimRate = 1.5;
 		}
 
-		Velocity.X = 0.0;
-		Velocity.Y = 0.0;
-		Acceleration = vect(0.00,0.00,0.00);
-
-		PlayAnim(FaintAnim,fAnimRate,0.2);
+		PlayAnim(FaintAnim,AnimRate,0.2);
 
 		if ( DeathType == DEATH_Fast )
 		{
 			AnimFrame = 36.0 / 151.0;
 		}
-  }
-  
-  function vector FindFaintLocation()
-  {
+	}
+
+	function vector FindFaintLocation()
+	{ 
 		local float  d;
 		local vector n;
 		local vector v, vLast, vSave, vDest;
@@ -1252,7 +1250,6 @@ state stateDead
 			}
 
 			d -= 10;
-
 		} until( d <= 0 );
 
 		if( d <= 0 )
@@ -1297,44 +1294,43 @@ state stateDead
 
 
 			d -= 10;
-
 		} until( d <= 0 );
 
 		SetLocation( vSave );
 
 		return v;
-  }
-    
-  begin:
-		RotationRate.Yaw = 0;
-		AccelRate = 70.0;
+	}
 
-		if (  !DeathType == DEATH_Instant )
-		{
-			PlayDeathEmoteSound();
-			Sleep(0.666);
-			MoveTo(FindFaintLocation());
-		}
+	begin:
+	RotationRate.Yaw = 0;
+	AccelRate = 70.0;
 
-		Velocity = vect(0.00,0.00,0.00);
-		Acceleration = vect(0.00,0.00,0.00);
+	if ( !DeathType == DEATH_Instant )
+	{
+		PlayDeathEmoteSound();
+		Sleep(0.666);
+		MoveTo(FindFaintLocation());
+	}
 
-		if ( DeathType == DEATH_Instant )
-		{
-			Sleep(0.5);
-		}
-		else
-		{
-			FinishAnim();
-			Sleep(0.5);
-		}
+	Velocity = vect(0.00,0.00,0.00);
+	Acceleration = vect(0.00,0.00,0.00);
 
-		if ( DeathType == DEATH_Slow )
-		{
-			Sleep(1.5);
-		}
+	if ( DeathType == DEATH_Instant )
+	{
+		Sleep(0.5);
+	}
+	else
+	{
+		FinishAnim();
+		Sleep(0.5);
+	}
 
-		ConsoleCommand("LoadGame 0");
+	if ( DeathType == DEATH_Slow )
+	{
+		Sleep(1.5);
+	}
+
+	ConsoleCommand("LoadGame 0");
 }
 
 state stateInactive
