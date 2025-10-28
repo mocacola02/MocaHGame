@@ -2,9 +2,12 @@
 // HProp.
 //================================================================================
 
-class HProp extends HPawn;
+class HProp extends Actor;
 
 var bool bBounceIntoPlaceTiming;
+var(HPropCarry) bool bObjectCanBePickedUp;
+var(HPropCarry) bool bAccurateThrowing;
+var(HPropCarry) float ThrowVelocity;
 var() bool bBounceIntoPlace;
 var float BounceIntoPlaceTimeout;
 var() array<Sound> BounceSounds;
@@ -64,6 +67,8 @@ state BounceIntoPlace
 		Sleep(1.0);
 		goto ('Loop');
 }
+
+state stateBeingThrown() //TODO: Implement from HPawn.
 
 defaultproperties
 {
