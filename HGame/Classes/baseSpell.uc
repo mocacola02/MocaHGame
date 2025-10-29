@@ -2,10 +2,19 @@
 // baseSpell.
 //================================================================================
 
-class baseSpell extends Projectile; 
+class baseSpell extends HProjectile; 
 
 //texture import -AdamJD
 #exec Texture Import File=Textures\Icons\defaultSpellIcon.PNG	GROUP=Icons Name=defaultSpellIcon COMPRESSION=3 UPSCALE=1 Mips=0 Flags=2
+
+struct SpellParticleFX
+{
+	var() class<ParticleFX> FlyingParticleClass;
+	var() class<ParticleFX> HitParticleClass;
+	var() class<ParticleFX> HitWallParticleClass;
+	var() class<ParticleFX> ReactParticleClass;
+	var() class<ParticleFX> ChargeParticleClass;
+}
 
 var ESpellType SpellType;
 var Texture SpellIcon;
@@ -16,7 +25,7 @@ var Actor TargetActor;
 var Vector TargetOffset;
 var() float SeekSpeed;
 var Vector CurrentDir;
-var(VisualFX) ParticleFX fxFlyParticleEffect;
+/* var(VisualFX) ParticleFX fxFlyParticleEffect;
 var(VisualFX) Class<ParticleFX> fxFlyParticleEffectClass;
 var(VisualFX) ParticleFX fxHitParticleEffect;
 var(VisualFX) Class<ParticleFX> fxHitParticleEffectClass;
@@ -24,11 +33,22 @@ var(VisualFX) ParticleFX fxHitWallParticleEffect;
 var(VisualFX) Class<ParticleFX> fxHitWallParticleEffectClass;
 var(VisualFX) ParticleFX fxReactParticleEffect;
 var(VisualFX) Class<ParticleFX> fxReactParticleEffectClass;
+ */
+var(VisualFX) SpellParticleFX SpellFX;
+
+var ParticleFX FlyingParticleActor;
+var ParticleFX HitParticleActor;
+var ParticleFX HitWallParticleActor;
+var ParticleFX ReactParticleActor;
+var ParticleFX ChargeParticleActor;
+
 var Sound CastSound;
 var string SpellIncantation;
 var string QuietSpellIncantation;
 var harry PlayerHarry;
 var bool bUseDebugMode;
+var array<String> HarryIncants;
+var array<String> GoyleIncants;
 
 function SetDebugMode (bool bOn)
 {

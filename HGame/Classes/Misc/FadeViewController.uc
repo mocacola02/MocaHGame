@@ -2,7 +2,7 @@
 // FadeViewController.
 //================================================================================
 
-class FadeViewController extends Actor;
+class FadeViewController extends HActor;
 
 var() bool bFadeFlash;
 var() float fadetime;

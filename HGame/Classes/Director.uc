@@ -2,7 +2,7 @@
 // Director.
 //================================================================================
 
-class Director extends Actor;
+class Director extends HActor;
 
 var harry PlayerHarry;
 var baseConsole Console;

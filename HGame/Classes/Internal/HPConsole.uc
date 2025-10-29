@@ -586,6 +586,12 @@ function ToggleDebugMode()
 	bDebugMode =  !bDebugMode;
 }
 
+function ResetSpace()
+{
+	bSpaceReleased = False;
+	bSpacePressed = False;
+}
+
 function SaveSelectedSlot()
 {
 	harry(Viewport.Actor).SloMo(1.0);

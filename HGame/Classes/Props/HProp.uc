@@ -2,7 +2,7 @@
 // HProp.
 //================================================================================
 
-class HProp extends Actor;
+class HProp extends HActor;
 
 var bool bBounceIntoPlaceTiming;
 var(HPropCarry) bool bObjectCanBePickedUp;

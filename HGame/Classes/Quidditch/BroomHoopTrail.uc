@@ -2,7 +2,7 @@
 // BroomHoopTrail.
 //================================================================================
 
-class BroomHoopTrail extends Actor;
+class BroomHoopTrail extends HActor;
 
 const MaxHoops= 5;
 var harry PlayerHarry;

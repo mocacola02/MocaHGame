@@ -2,7 +2,7 @@
 // PixieMarker.
 //================================================================================
 
-class PixieMarker extends Actor;
+class PixieMarker extends HActor;
 
 //texture import -AdamJD
 #exec Texture Import File=Textures\HiddenPawn.PNG Name=HiddenPawn COMPRESSION=P8 UPSCALE=1 Mips=0 Flags=2

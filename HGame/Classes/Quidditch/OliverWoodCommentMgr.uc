@@ -2,7 +2,7 @@
 // OliverWoodCommentMgr.
 //================================================================================
 
-class OliverWoodCommentMgr extends Actor;
+class OliverWoodCommentMgr extends HActor;
 
 const fMinTimeBeforeCommentRepeat= 100.0;
 const fMaxGapTimeBetweenComments= 4.0;

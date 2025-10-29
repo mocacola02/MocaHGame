@@ -229,7 +229,7 @@ function UpdateCursor (optional bool bJustStopAtClosestPawnOrWall)
     {
       continue;
     } 
-    if ( PlayerHarry.IsInSpellBook(aHitActor.eVulnerableToSpell) || (bJustStopAtClosestPawnOrWall) )
+    if ( PlayerHarry.IsSpellInBook(aHitActor.eVulnerableToSpell) || (bJustStopAtClosestPawnOrWall) )
     {
        if ( aHitActor.IsA('spellTrigger') )
        {

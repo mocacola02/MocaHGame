@@ -2,7 +2,7 @@
 // basePopup.
 //================================================================================
 
-class basePopup extends Actor;
+class basePopup extends HActor;
 
 var harry PlayerHarry;
 

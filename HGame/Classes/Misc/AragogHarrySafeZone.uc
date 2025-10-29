@@ -2,7 +2,7 @@
 // AragogHarrySafeZone.
 //================================================================================
 
-class AragogHarrySafeZone extends Actor;
+class AragogHarrySafeZone extends HActor;
 
 defaultproperties
 {

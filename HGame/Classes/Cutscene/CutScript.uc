@@ -7,7 +7,7 @@
 /*(.Add, .AddItem, .Empty, .Contains, .Find, .InsertItem, .RemoveItem)*/
 // Relies on MiscFunctions for some backend stuff
 
-class CutScript extends Actor;
+class CutScript extends HActor;
 
 // Omega: Misc functions class to call static stuff on
 var Class<MiscFunctions> MiscFunctions;

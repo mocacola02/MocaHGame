@@ -2,7 +2,7 @@
 // AragogCenterWeb.
 //================================================================================
 
-class AragogCenterWeb extends Actor;
+class AragogCenterWeb extends HActor;
 
 var Aragog Spider;
 

@@ -2,7 +2,7 @@
 // StatusItem.
 //================================================================================
 
-class StatusItem extends Actor
+class StatusItem extends HActor
   Abstract; 
 
 var StatusItem siNext;

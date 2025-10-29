@@ -81,8 +81,8 @@ var() HouseAffiliation eHouse;
 var bool bReboundingSpells;
 var Class<baseSpell> CurrentSpellClass;
 
-
-function bool HarrySpellAboutToHitMe()
+// don't like this, DELETEME
+/* function bool HarrySpellAboutToHitMe()
 {
 	local int I;
 	local baseSpell CurrCastedSpell;
@@ -100,7 +100,7 @@ function bool HarrySpellAboutToHitMe()
 		}
 	}
 	return False;
-}
+} */
 
 function bool HarrySpellGoesInMyDirection()
 {

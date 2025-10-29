@@ -9,37 +9,37 @@ var int LastAnimFrame;
 
 function GotoStateThrow()
 {
-  GotoState('stateThrow');
+	GotoState('stateThrow');
 }
 
-function bool GotoStateCasting (bool in_bHarryUsingSword)
+function bool GotoStateCasting ()
 {
-  GotoState('stateCasting');
+	GotoState('stateCasting');
+}
+
+function bool IsCasting()
+{
+	return IsInState('stateCasting');
 }
 
 function bool IsCarryingActor()
 {
-  if ( IsInState('statePickupItem') || IsInState('stateThrow') )
-  {
-    return True;
-  } else {
-    return False;
-  }
+	return IsInState('statePickupItem') || IsInState('stateThrow');
 }
 
-function bool CanPickSomethingUp()
+/* function bool CanPickSomethingUp()
 {
   return True;
 }
-
-function bool PlayHarryMovementAnims()
+ */
+/* function bool PlayHarryMovementAnims()
 {
   return True;
-}
+} */
 
 function Cast()
 {
-  harry(Owner).Cast();
+	harry(Owner).Cast();
 }
 
 auto state stateIdle
@@ -88,19 +88,20 @@ state stateThrow
 
 state stateCasting
 {
-begin:
-  harry(Owner).HarryAnimType =  AT_Combine;
-  if ( harry(Owner).bHarryUsingSword )
-  {
-    LoopAnim('swordaim',1.0,0.2);
-  } else //{
-    if ( harry(Owner).bInDuelingMode )
-    {
-      LoopAnim('duel_charge',1.0,0.2);
-    } else {
-      LoopAnim('CastAim',1.0,0.2);
-    }
-  //}
+	begin:
+		harry(Owner).HarryAnimType =  AT_Combine;
+		if ( harry(Owner).bHarryUsingSword )
+		{
+			LoopAnim('swordaim',1.0,0.2);
+		}
+		else if ( harry(Owner).bInDuelingMode )
+		{
+			LoopAnim('duel_charge',1.0,0.2);
+		}
+		else
+		{
+			LoopAnim('CastAim',1.0,0.2);
+		}
 }
 
 state stateCancelCasting

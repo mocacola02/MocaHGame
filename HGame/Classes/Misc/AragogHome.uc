@@ -2,7 +2,7 @@
 // AragogHome.
 //================================================================================
 
-class AragogHome extends Actor;
+class AragogHome extends HActor;
 
 defaultproperties
 {

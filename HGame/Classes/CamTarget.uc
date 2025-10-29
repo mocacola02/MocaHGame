@@ -2,5 +2,5 @@
 // CamTarget.
 //================================================================================
 
-class CamTarget extends Actor;
+class CamTarget extends HActor;
 

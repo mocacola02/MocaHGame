@@ -3,7 +3,7 @@
 //================================================================================
 // Omega: Cleaned up tabbing
 
-class CutScene extends Actor;
+class CutScene extends HActor;
 
 const MAX_THREADS=20;
 // Omega: If only we could update this to be dynamic

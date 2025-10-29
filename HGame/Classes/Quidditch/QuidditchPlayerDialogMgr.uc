@@ -2,7 +2,7 @@
 // QuidditchPlayerDialogMgr.
 //================================================================================
 
-class QuidditchPlayerDialogMgr extends Actor;
+class QuidditchPlayerDialogMgr extends HActor;
 
 const fMinTimeBeforeLineRepeat= 90.0;
 const fMaxGapTimeBetweenLines= 10.0;

@@ -24,6 +24,7 @@ var globalconfig int AnnouncerVolume;
 var globalconfig float fDamageMultiplier_Easy;
 var globalconfig float fDamageMultiplier_Medium;
 var globalconfig float fDamageMultiplier_Hard;
+var globalconfig float fDamageMultiplier_Custom;
 
 //-------------------------------------
 // Input / Movement
@@ -70,11 +71,13 @@ var(Input) bool bCanUseWeapon;
 var(Input) float SpellCursorRange;
 
 var int WebAmount;
+var float AirTime;
 
 //-------------------------------------
 // Visual
 //-------------------------------------
-enum enumHarryAnimSet {
+enum enumHarryAnimSet
+{
   HARRY_ANIM_SET_MAIN,
   HARRY_ANIM_SET_ECTO,
   HARRY_ANIM_SET_SLEEPY,
@@ -107,6 +110,8 @@ var cHarryAnimChannel HarryAnimChannel;
 var EAnimType HarryAnimType;
 
 var float LastAnimFrame;
+
+var int WaitingCount;
 
 var(Ecto) bool bPlayedEctoKnockBack;
 
@@ -145,6 +150,30 @@ var(Sounds) Sound Die4;
 var(Sounds) Sound GaspSound;
 var(Sounds) Sound LandGrunt;
 
+var(Sounds) array<Sound> HurtSounds;
+var(Sounds) array<Sound> GoyleHurtSounds;
+
+var(Sounds) array<Sound> DieSounds;
+var(Sounds) array<Sound> GoyleDieSounds;
+
+var(Sounds) array<Sound> LandedSounds;
+var(Sounds) array<Sound> GoyleLandedSounds;
+
+var(Sounds) array<Sound> FallingPullupSounds;
+var(Sounds) array<Sound> GoyleFallingPullupSounds;
+
+var(Sounds) array<Sound> EasyPullupSounds;
+var(Sounds) array<Sound> GoyleEasyPullupSounds;
+
+var(Sounds) array<Sound> HardPullupSounds;
+var(Sounds) array<Sound> GoyleHardPullupSounds;
+
+var(Sounds) array<Sound> FallDeepSounds;
+var(Sounds) array<Sound> GoyleFallDeepSounds;
+
+var(Sounds) array<Sound> JumpEmoteSounds;
+var(Sounds) array<Sound> GoyleJumpEmoteSounds;
+
 var(Sounds) Sound EctoDamage;
 var(Sounds) int EctoHurtSoundCount;
 
@@ -154,6 +183,8 @@ var Sound SelectedMixingSound;
 var float MixingSoundDuration;
 
 var(Sounds) class<FootstepSet> FootstepSoundSet;
+
+var(Sounds) float LandingNoiseMult;
 
 //-------------------------------------
 // HousePoints
@@ -291,6 +322,10 @@ var int EctoAmount;
 var bool bFlashCooldown;
 var() class<HUD> HUDToUse;
 var float SleepyTimer;
+var Texture LastHitTexture;
+var array<Sound> LastFootstepSounds;
+var float DifficultyMultiplier;
+var(Magic) bool bLumosOnSpawn;
 
 //-------------------------------------
 // Pending Deletion
@@ -314,6 +349,21 @@ event PreBeginPlay()
 
 	HUDType = HUDToUse;
 	menuBook = HPConsole(Player.Console).menuBook;
+
+	if (DifficultyMultiplier == 0)
+	{
+		switch(Difficulty)
+		{
+			case DifficultyEasy:
+				SetDifficultyMultiplier(fDamageMultiplier_Easy); break;
+			case DifficultyMedium:
+				SetDifficultyMultiplier(fDamageMultiplier_Medium); break;
+			case DifficultyHard:
+				SetDifficultyMultiplier(fDamageMultiplier_Hard); break;
+			default:
+				SetDifficultyMultiplier(fDamageMultiplier_Easy); break;
+		}
+	}
 }
 
 event PostBeginPlay()
@@ -323,6 +373,11 @@ event PostBeginPlay()
 	InitDependencies();
 
     CopyAllStatusFromHarryToManager();
+
+	if (bLumosOnSpawn && Weapon.IsA('baseWand'))
+	{
+		baseWand(Weapon).LumosTurnOn();
+	}
 }
 
 function GetDirector()
@@ -602,6 +657,11 @@ exec function SetDuelSpell(int SpellIdx)
 	PlaySound(DuelSpellSounds[CurrentDuelSpell]);
 }
 
+function bool IsDueling()
+{
+	return bInDuelingMode;
+}
+
 //-------------------------------------
 // Ecto
 //-------------------------------------
@@ -663,6 +723,12 @@ function WebAnimRefCountSub()
 // Misc. Functions
 //-------------------------------------
 
+function ResetFired()
+{
+	bJustFired = False;
+	bJustAltFired = False;
+}
+
 function DestroyClass (string ClassToDestroy)
 {
 	local name ClassN;
@@ -699,6 +765,11 @@ function GotoLocation (Vector newLoc)
 
 	// Set our highest Z to the new location's Z
 	HighestZ = Location.Z;
+}
+
+function SetDifficultyMultiplier(float Multiplier)
+{
+	DifficultyMultiplier = Multiplier;
 }
 
 //-------------------------------------
@@ -1010,7 +1081,7 @@ function PickupActor (Actor Other)
 	}
 
 	// If we're eligible to carry, "do it". - Emperor Palpatine, 19 BBY
-	if ( Physics == PHYS_Walking && IsInState('PlayerWalking') && CarryingActor == None && ActorToPickup.bObjectCanBePickedUp && HarryAnimChannel.CanPickSomethingUp() )
+	if ( Physics == PHYS_Walking && IsInState('PlayerWalking') && CarryingActor == None && ActorToPickup.bObjectCanBePickedUp)
 	{
 		ClientMessage("Do Pickup");
 		CarryingActor = ActorToPickup;
@@ -1965,7 +2036,6 @@ function TakeDamage (int Damage, Pawn InstigatedBy, Vector HitLocation, Vector M
 	local float fFlashScale;
 	local StatusItem siWiggenPotion;
 	local bool bFallDamage;
-	local float fDamageScaled;
 	local int FinalDamage;
 	
 	if ( (CarryingActor != None) && (CarryingActor == InstigatedBy) )
@@ -1976,22 +2046,8 @@ function TakeDamage (int Damage, Pawn InstigatedBy, Vector HitLocation, Vector M
 	LastDamageType = DamageType;
 	
 	bPlayHurtSound = True;
-	fDamageScaled = Damage;
-	switch (Difficulty)
-	{
-		case DifficultyEasy:
-			fDamageScaled = (fDamageScaled * fDamageMultiplier_Easy);
-			break;
-		case DifficultyMedium:
-			fDamageScaled = (fDamageScaled * fDamageMultiplier_Medium);
-			break;
-		case DifficultyHard:
-			fDamageScaled = (fDamageScaled * fDamageMultiplier_Hard);
-			break;
-		default:
-	}
+	FinalDamage = Damage * DifficultyMultiplier;
 
-	FinalDamage = FMax(fDamageScaled,fMinDamageScalar); 
 	fFlashScale = FClamp(FinalDamage,20.0,60.0);
 
 	switch (DamageType)
@@ -2196,7 +2252,7 @@ function Falling()
 	GroundSpeed = GroundJumpSpeed;
 }
 
-simulated function PlayFootStep()
+simulated function PlayFootStep(optional float Volume)
 {
 	local Sound Step;
 	local int Decision;
@@ -2204,9 +2260,12 @@ simulated function PlayFootStep()
 	local int Flags;
 	local array<Sound> Footsteps;
 	local float NoiseLevel;
-	local float Volume;
 
-	Volume = 1000.0;
+	if (Volume <= 0)
+	{
+		Volume = 1000.0;
+	}
+
 	if ( FootRegion.Zone.bWaterZone )
 	{
 		PlaySound(WaterStep,SLOT_Interact,1.0,False,Volume,1.0);
@@ -2214,7 +2273,7 @@ simulated function PlayFootStep()
 	}
 	else if ( Fatness > 200 )
 	{
-		PlaySound(Sound'Big_whomp2',SLOT_None,RandRange(0.4,0.69999999),False,500.0,RandRange(0.5,1.0));
+		PlaySound(Sound'Big_whomp2',SLOT_None,RandRange(0.4,0.7),False,500.0,RandRange(0.5,1.0));
 		ShakeView(0.22,50.0,50.0);
 		return;
 	}
@@ -2229,96 +2288,131 @@ simulated function PlayFootStep()
 	{
 		HitTexture = TraceTexture(Location + vect(0.00,0.00,-128.00),Location,Flags);
 
-		if ( HitTexture != None )
+		if ( HitTexture != None  && HitTexture != LastHitTexture)
 		{
+			LastHitTexture = HitTexture;
+
 			switch (HitTexture.FootstepSound)
 			{
 				case FOOTSTEP_Stone:
 					FootSteps = Default.FootstepSoundSet.StoneSteps;
 					NoiseLevel = 10.0;
+					break;
 				case FOOTSTEP_Rug:
 					FootSteps = Default.FootstepSoundSet.RugSteps;
 					NoiseLevel = 2.0;
+					break;
 				case FOOTSTEP_Wood:
 					FootSteps = Default.FootstepSoundSet.WoodSteps;
 					NoiseLevel = 8.0;
+					break;
 				case FOOTSTEP_Cave:
 					FootSteps = Default.FootstepSoundSet.CaveSteps;
 					NoiseLevel = 10.0;
 				case FOOTSTEP_Cloud:
 					FootSteps = Default.FootstepSoundSet.CloudSteps;
 					NoiseLevel = 1.0;
+					break;
 				case FOOTSTEP_Wet:
 					FootSteps = Default.FootstepSoundSet.WetSteps;
 					NoiseLevel = 8.0;
+					break;
 				case FOOTSTEP_Grass:
 					FootSteps = Default.FootstepSoundSet.WetSteps;
 					NoiseLevel = 2.0;
+					break;
 				case FOOTSTEP_Metal:
 					FootSteps = Default.FootstepSoundSet.MetalSteps;
 					NoiseLevel = 10.0;
+					break;
 				case FOOTSTEP_Snow:
 					FootSteps = Default.FootstepSoundSet.SnowSteps;
 					NoiseLevel = 3.0;
+					break;
 				case FOOTSTEP_Sand:
 					FootSteps = Default.FootstepSoundSet.SandSteps;
 					NoiseLevel = 4.0;
+					break;
 				case FOOTSTEP_Gravel:
 					FootSteps = Default.FootstepSoundSet.GravelSteps;
 					NoiseLevel = 5.0;
+					break;
 				case FOOTSTEP_lava:
 					FootSteps = Default.FootstepSoundSet.LavaSteps;
 					NoiseLevel = 1.0;
+					break;
 				case FOOTSTEP_drylava:
 					FootSteps = Default.FootstepSoundSet.DryLavaSteps;
 					NoiseLevel = 10.0;
+					break;
 				case FOOTSTEP_Rubble:
 					FootSteps = Default.FootstepSoundSet.RubbleSteps;
 					NoiseLevel = 10.0;
+					break;
 				case FOOTSTEP_MetalHollow:
 					FootSteps = Default.FootstepSoundSet.MetalHollowSteps;
 					NoiseLevel = 10.0;
+					break;
 				case FOOTSTEP_MetalPipe:
 					FootSteps = Default.FootstepSoundSet.MetalPipeSteps;
 					NoiseLevel = 10.0;
+					break;
 				case FOOTSTEP_Grate:
 					FootSteps = Default.FootstepSoundSet.GrateSteps;
 					NoiseLevel = 10.0;
+					break;
 				case FOOTSTEP_Dirt:
 					FootSteps = Default.FootstepSoundSet.DirtSteps;
 					NoiseLevel = 3.0;
+					break;
 				case FOOTSTEP_Glass:
 					FootSteps = Default.FootstepSoundSet.GlassSteps;
 					NoiseLevel = 7.0;
+					break;
 				case FOOTSTEP_BrokenGlass:
 					FootSteps = Default.FootstepSoundSet.BrokenGlassSteps;
 					NoiseLevel = 10.0;
+					break;
 				case FOOTSTEP_Ice:
 					FootSteps = Default.FootstepSoundSet.IceSteps;
 					NoiseLevel = 7.0;
+					break;
 				case FOOTSTEP_Forcefield:
 					FootSteps = Default.FootstepSoundSet.ForcefieldSteps;
 					NoiseLevel = 10.0;
+					break;
 				case FOOTSTEP_CreakyWood:
 					FootSteps = Default.FootstepSoundSet.CreakyWoodSteps;
 					NoiseLevel = 12.0;
+					break;
 				case FOOTSTEP_Marble:
 					FootSteps = Default.FootstepSoundSet.MarbleSteps;
 					NoiseLevel = 8.0;
+					break;
 				case FOOTSTEP_SqueakyFloor:
 					FootSteps = Default.FootstepSoundSet.SqueakyFloorSteps;
 					NoiseLevel = 10.0;
+					break;
 				case FOORSTEP_HollowWood:
 					FootSteps = Default.FootstepSoundSet.HollowWoodSteps;
 					NoiseLevel = 6.0;
+					break;
 				case FOOTSTEP_WetStone:
 					FootSteps = Default.FootstepSoundSet.WetStoneSteps;
 					NoiseLevel = 8.0;
+					break;
 
 				default:
 					Footsteps = Default.FootstepSoundSet.StoneSteps;
-					bMakeNoise = True;
+					NoiseLevel = 10.0;
+					break;
 			}
+
+			LastFootstepSounds = Footsteps;
+		}
+		else
+		{
+			Footsteps = LastFootstepSounds;
 		}
 	}
 	
@@ -2326,13 +2420,34 @@ simulated function PlayFootStep()
 	
 	Step = Footsteps[Decision];
 
-	PlaySound(Step,SLOT_None,1.0,False,Volume,0.89999998);
+	PlaySound(Step,SLOT_None,1.0,False,Volume,0.9);
 
 	if (NoiseLevel > 0.0)
 	{
 		HearHarryRecipient.PawnHearHarryNoise();
 		MakeNoise(NoiseLevel);
 	}
+}
+
+function PlayLandedSound()
+{
+	local float vol;
+
+	if( AirTime < 1.0 )
+	{
+		vol = 0.3 * AirTime;
+	}
+	else
+	{
+		vol = 0.3 + (AirTime - 1.0) * 0.7/0.5;
+	}
+	
+	if( Location.z < (fFallingZ - 40) )
+	{
+		vol *= 2;
+	}
+
+	PlayFootStep(vol);
 }
 
 function PlayHit (float Damage, Vector HitLocation, name DamageType, Vector Momentum)
@@ -2342,10 +2457,7 @@ function PlayHit (float Damage, Vector HitLocation, name DamageType, Vector Mome
 function DoJump (optional float f)
 {
 	local float TmpJumpZ;
-	local Vector V;
-	local float S;
-	
-	//log("CALLED JUMP");
+	local float VelocitySize;
 
 	if ( bKeepStationary || bInDuelingMode || bCorraledByMover )
 	{
@@ -2369,29 +2481,24 @@ function DoJump (optional float f)
 	{
 		PlayJumpEmoteSound();
 
-		// Make noise
-		//if ( (Level.Game != None) && Level.Game.Difficulty > 0 )
-		if ( (Level.Game != None) && Level.Game.Difficulty > 0 )
-		{
-		  	MakeNoise(0.1 * Level.Game.Difficulty);
-		}
+		MakeNoise(0.1 * DifficultyMultiplier);
 
 		MountDelta = Location;
 
-		if ( VSize2D(Velocity) > 0 )
+		VelocitySize = VSize2D(Velocity);
+
+		if ( VelocitySize > 0 )
 		{
-		  PlayAnim(HarryAnims[HarryAnimSet].Jump2,,[TweenTime]0.1,[Type]HarryAnimType);
-		} 
+			PlayAnim(HarryAnims[HarryAnimSet].Jump2,,[TweenTime]0.1,[Type]HarryAnimType);
+		}
 		else 
 		{
-		  PlayAnim(HarryAnims[HarryAnimSet].Jump,,[TweenTime]0.1,[Type]HarryAnimType);
-		}
+			PlayAnim(HarryAnims[HarryAnimSet].Jump,,[TweenTime]0.1,[Type]HarryAnimType);
+		}		
 
-		S = VSize2D(Velocity);
-
-		if ( S > GroundJumpSpeed )
+		if ( VelocitySize > GroundJumpSpeed )
 		{
-		  Velocity *= GroundJumpSpeed / S;
+			Velocity *= GroundJumpSpeed / VelocitySize;
 		}
 
 		GroundSpeed = GroundJumpSpeed;
@@ -2402,7 +2509,7 @@ function DoJump (optional float f)
 
 		if ( (Base != Level) && (Base != None) )
 		{
-		  Velocity += Base.Velocity;
+			Velocity += Base.Velocity;
 		}
 
 		SetPhysics(PHYS_Falling);
@@ -2411,550 +2518,163 @@ function DoJump (optional float f)
 
 function PlayHurtEmoteSound()
 {
-  if ( bIsGoyle )
-  {
-    switch (Rand(26))
-    {
-      case 0:
-      PlaySound(Sound'PC_AsG_Adv7aSlyth_26',SLOT_Talk);
-      break;
-      case 1:
-      PlaySound(Sound'PC_AsG_Adv7aSlyth_26a',SLOT_Talk);
-      break;
-      case 2:
-      PlaySound(Sound'PC_AsG_Adv7aSlyth_26b',SLOT_Talk);
-      break;
-      case 3:
-      PlaySound(Sound'PC_AsG_Emote_13',SLOT_Talk);
-      break;
-      case 4:
-      PlaySound(Sound'PC_AsG_Emote_13a',SLOT_Talk);
-      break;
-      case 5:
-      PlaySound(Sound'PC_AsG_Emote_13b',SLOT_Talk);
-      break;
-      case 6:
-      PlaySound(Sound'PC_AsG_Adv7aSlyth_25',SLOT_Talk);
-      break;
-      case 7:
-      PlaySound(Sound'PC_AsG_Adv7aSlyth_25a',SLOT_Talk);
-      break;
-      case 8:
-      PlaySound(Sound'PC_AsG_Adv7aSlyth_25b',SLOT_Talk);
-      break;
-      case 9:
-      PlaySound(Sound'PC_AsG_Adv7aSlyth_25c',SLOT_Talk);
-      break;
-      case 10:
-      PlaySound(Sound'PC_AsG_Emote_14',SLOT_Talk);
-      break;
-      case 11:
-      PlaySound(Sound'PC_AsG_Emote_14a',SLOT_Talk);
-      break;
-      case 12:
-      PlaySound(Sound'PC_AsG_Emote_14b',SLOT_Talk);
-      break;
-      case 13:
-      PlaySound(Sound'PC_AsG_Emote_15',SLOT_Talk);
-      break;
-      case 14:
-      PlaySound(Sound'PC_AsG_Emote_15a',SLOT_Talk);
-      break;
-      case 15:
-      PlaySound(Sound'PC_AsG_Emote_15b',SLOT_Talk);
-      break;
-      case 16:
-      PlaySound(Sound'PC_AsG_Adv7aSlyth_27',SLOT_Talk);
-      break;
-      case 17:
-      PlaySound(Sound'PC_AsG_Adv7aSlyth_27a',SLOT_Talk);
-      break;
-      case 18:
-      PlaySound(Sound'PC_AsG_Adv7aSlyth_27b',SLOT_Talk);
-      break;
-      case 19:
-      PlaySound(Sound'PC_AsG_Adv7aSlyth_28',SLOT_Talk);
-      break;
-      case 20:
-      PlaySound(Sound'PC_AsG_Adv7aSlyth_28a',SLOT_Talk);
-      break;
-      case 21:
-      PlaySound(Sound'PC_AsG_Adv7aSlyth_28b',SLOT_Talk);
-      break;
-      case 22:
-      PlaySound(Sound'PC_AsG_Emote_16',SLOT_Talk);
-      break;
-      case 23:
-      PlaySound(Sound'PC_AsG_Emote_16a',SLOT_Talk);
-      break;
-      case 24:
-      PlaySound(Sound'PC_AsG_Emote_16b',SLOT_Talk);
-      break;
-      case 25:
-      PlaySound(Sound'PC_AsG_Emote_17',SLOT_Talk);
-      break;
-      case 24:
-      PlaySound(Sound'PC_AsG_Emote_17a',SLOT_Talk);
-      break;
-      case 25:
-      PlaySound(Sound'PC_AsG_Emote_17b',SLOT_Talk);
-      break;
-      default:
-    }
-  } else {
-    PlaySound(HurtSound[Rand(NUM_HURT_SOUNDS)],SLOT_Talk);
-  }
+	local int RandIndex;
+
+	if ( bIsGoyle )
+	{
+		RandIndex = Rand(GoyleHurtSounds.Length);
+		PlaySound(GoyleHurtSounds[RandIndex],SLOT_Talk);
+	}
+	else
+	{
+		RandIndex = Rand(HurtSounds.Length);
+		PlaySound(HurtSounds[RandIndex],SLOT_Talk);
+	}
 }
 
 function PlayDeathEmoteSound()
 {
-  if ( bIsGoyle )
-  {
-    switch (Rand(3))
-    {
-      case 0:
-      PlaySound(Sound'AsG_faint_1',SLOT_Talk);
-      break;
-      case 1:
-      PlaySound(Sound'AsG_faint_2',SLOT_Talk);
-      break;
-      case 2:
-      PlaySound(Sound'AsG_faint_3',SLOT_Talk);
-      break;
-      default:
-    }
-  } else {
-    switch (Rand(3))
-    {
-      case 0:
-      PlaySound(Sound'PC_Hry_faint1',SLOT_Talk,0.75);
-      break;
-      case 1:
-      PlaySound(Sound'PC_Hry_faint2',SLOT_Talk,0.75);
-      break;
-      case 2:
-      PlaySound(Sound'PC_Hry_faint3',SLOT_Talk,0.75);
-      break;
-      default:
-    }
-  }
+	local int RandIndex;
+
+	if ( bIsGoyle )
+	{
+		RandIndex = Rand(GoyleDieSounds.Length);
+		PlaySound(GoyleDieSounds[RandIndex],SLOT_Talk,0.75);
+	} 
+	else
+	{
+		RandIndex = Rand(DieSounds.Length);
+		PlaySound(DieSounds[RandIndex],SLOT_Talk,0.75);
+	}
 }
 
 function PlayLandedEmoteSound()
 {
-  if ( bIsGoyle )
-  {
-    switch (Rand(5))
-    {
-      case 0:
-      PlaySound(Sound'PC_AsG_Adv7aSlyth_24',SLOT_Talk);
-      break;
-      case 1:
-      PlaySound(Sound'PC_AsG_Adv7aSlyth_24a',SLOT_Talk);
-      break;
-      case 2:
-      PlaySound(Sound'PC_AsG_Adv7aSlyth_24b',SLOT_Talk);
-      break;
-      case 3:
-      PlaySound(Sound'PC_AsG_Adv7aSlyth_24c',SLOT_Talk);
-      break;
-      case 4:
-      PlaySound(Sound'PC_AsG_Adv7aSlyth_24d',SLOT_Talk);
-      break;
-      default:
-    }
-  } else {
-    switch (Rand(5))
-    {
-      case 0:
-      PlaySound(Sound'landing1',SLOT_Talk);
-      break;
-      case 1:
-      PlaySound(Sound'landing2',SLOT_Talk);
-      break;
-      case 2:
-      PlaySound(Sound'landing3',SLOT_Talk);
-      break;
-      case 3:
-      PlaySound(Sound'landing4',SLOT_Talk);
-      break;
-      case 4:
-      PlaySound(Sound'landing5',SLOT_Talk);
-      break;
-      default:
-    }
-  }
+	local int RandIndex;
+
+	if ( bIsGoyle )
+	{
+		RandIndex = Rand(GoyleLandedSounds.Length);
+		PlaySound(GoyleLandedSounds[RandIndex],SLOT_Talk);
+	}
+	else
+	{
+		RandIndex = Rand(GoyleLandedSounds.Length);
+		PlaySound(GoyleLandedSounds[RandIndex],SLOT_Talk);
+	}
 }
 
 function PlayFallingPullupEmoteSound()
 {
-  if ( bIsGoyle )
-  {
-    switch (Rand(3))
-    {
-      case 0:
-      PlaySound(Sound'AsG_pullup_3',SLOT_Talk);
-      break;
-      case 1:
-      PlaySound(Sound'AsG_pullup_4',SLOT_Talk);
-      break;
-      case 2:
-      PlaySound(Sound'AsG_pullup_6',SLOT_Talk);
-      break;
-      default:
-    }
-  } else {
-    PlaySound(Sound'pull_up3',SLOT_Talk);
-  }
+	local int RandIndex;
+
+	if ( bIsGoyle )
+	{
+		RandIndex = Rand(GoyleFallingPullupSounds.Length);
+		PlaySound(GoyleFallingPullupSounds[RandIndex],SLOT_Talk);
+	}
+	else
+	{
+		RandIndex = Rand(FallingPullupSounds.Length);
+		PlaySound(FallingPullupSounds[RandIndex],SLOT_Talk);
+	}
 }
 
 function PlayEasyPullupEmoteSound()
 {
-  if ( bIsGoyle )
-  {
-    switch (Rand(3))
-    {
-      case 0:
-      PlaySound(Sound'AsG_pullup_1',SLOT_Talk);
-      break;
-      case 1:
-      PlaySound(Sound'AsG_pullup_2',SLOT_Talk);
-      break;
-      case 2:
-      PlaySound(Sound'AsG_pullup_5',SLOT_Talk);
-      break;
-      default:
-    }
-  } else {
-    PlaySound(Sound'EmotiveHarry5_b_pullup6',SLOT_Talk);
-  }
+	local int RandIndex;
+
+	if ( bIsGoyle )
+	{
+		RandIndex = Rand(GoyleEasyPullupSounds.Length);
+		PlaySound(GoyleEasyPullupSounds[RandIndex],SLOT_Talk);
+	}
+	else
+	{
+		RandIndex = Rand(EasyPullupSounds.Length);
+		PlaySound(EasyPullupSounds,SLOT_Talk);
+	}
 }
 
 function PlayHardPullupEmoteSound()
 {
-  if ( bIsGoyle )
-  {
-    switch (Rand(3))
-    {
-      case 0:
-      PlaySound(Sound'AsG_pullup_3',SLOT_Talk);
-      break;
-      case 1:
-      PlaySound(Sound'AsG_pullup_4',SLOT_Talk);
-      break;
-      case 2:
-      PlaySound(Sound'AsG_pullup_6',SLOT_Talk);
-      break;
-      default:
-    }
-  } else {
-    PlaySound(Sound'EmotiveHarry5_a_pullup5',SLOT_Talk);
-  }
+	local int RandIndex;
+
+	if ( bIsGoyle )
+	{
+		RandIndex = Rand(GoyleHardPullupSounds.Length);
+		PlaySound(GoyleHardPullupSounds[RandIndex],SLOT_Talk);
+	}
+	else
+	{
+		RandIndex = Rand(HardPullupSounds.Length);
+		PlaySound(HardPullupSounds[RandIndex],SLOT_Talk);
+	}
 }
 
 function PlayFallDeepEmoteSound()
 {
-  if ( bIsGoyle )
-  {
-    switch (Rand(5))
-    {
-      case 0:
-      PlaySound(Sound'PC_AsG_Adv7aSlyth_29',SLOT_Talk);
-      break;
-      case 1:
-      PlaySound(Sound'PC_AsG_Emote_19',SLOT_Talk);
-      break;
-      case 2:
-      PlaySound(Sound'PC_AsG_Emote_19a',SLOT_Talk);
-      break;
-      case 3:
-      PlaySound(Sound'PC_AsG_Emote_19b',SLOT_Talk);
-      break;
-      default:
-    }
-  } else {
-    PlaySound(Sound'falldeep2',SLOT_Talk);
-  }
+	local int RandIndex;
+
+	if ( bIsGoyle )
+	{
+		RandIndex = Rand(GoyleFallDeepSounds.Length);
+		PlaySound(GoyleFallDeepSounds[RandIndex],SLOT_Talk);
+	}
+	else
+	{
+		RandIndex = Rand(FallDeepSounds.Length);
+		PlaySound(FallDeepSounds[RandIndex],SLOT_Talk);
+	}
 }
 
 function PlayJumpEmoteSound()
 {
-  if ( bIsGoyle )
-  {
-    switch (Rand(3))
-    {
-      case 0:
-      PlaySound(Sound'PC_AsG_Emote_20',SLOT_Talk);
-      break;
-      case 1:
-      PlaySound(Sound'PC_AsG_Emote_20a', SLOT_Talk);
-      break;
-      case 2:
-      PlaySound(Sound'PC_AsG_Emote_20b',SLOT_Talk);
-      break;
-      default:
-    }
-  } 
-  else 
-  {
-    PlayOwnedSound(JumpSound,SLOT_Talk,1.5,False,1200.0,1.0);
-  }
+	local int RandIndex;
+
+	if ( bIsGoyle )
+	{
+		RandIndex = Rand(GoyleJumpEmoteSounds.Length);
+		PlaySound(GoyleJumpEmoteSounds[RandIndex],SLOT_Talk);
+	} 
+	else 
+	{
+		// why lol
+		//PlayOwnedSound(JumpSound,SLOT_Talk,1.5,False,1200.0,1.0);
+
+		RandIndex = Rand(JumpEmoteSounds.Length);
+		PlaySound(JumpEmoteSounds[RandIndex],SLOT_Talk);
+	}
 }
 
-function PlayIncantationEmoteSound (ESpellType SpellType)
+function PlayIncantationEmoteSound (class<baseSpell> SpellType)
 {
-  local string SpellIncantation;
+	local string IncantationString;
+	local array<string> IncantationArray;
+	local int RandIndex;
 
-  if ( bIsGoyle )
-  {
-    switch (SpellType)
-    {
-      case SPELL_Alohomora:
-      switch (Rand(2))
-      {
-        case 0:
-        SpellIncantation = "PC_AsG_Adv7aSlyth_20";
-        break;
-        case 1:
-        SpellIncantation = "PC_AsG_Emote_12";
-        break;
-        case 1:
-        SpellIncantation = "PC_AsG_Emote_12a";
-        break;
-        default:
-      }
-      break;
-      case SPELL_Flipendo:
-      switch (Rand(2))
-      {
-        case 0:
-        SpellIncantation = "PC_AsG_Adv7aSlyth_19";
-        break;
-        case 1:
-        SpellIncantation = "PC_AsG_Emote_08";
-        break;
-        case 1:
-        SpellIncantation = "PC_AsG_Emote_08a";
-        break;
-        default:
-      }
-      break;
-      case SPELL_Lumos:
-      switch (Rand(2))
-      {
-        case 0:
-        SpellIncantation = "PC_AsG_Adv7aSlyth_21";
-        break;
-        case 1:
-        SpellIncantation = "PC_AsG_Emote_09";
-        break;
-        case 1:
-        SpellIncantation = "PC_AsG_Emote_09a";
-        break;
-        default:
-      }
-      break;
-      case SPELL_Skurge:
-      switch (Rand(2))
-      {
-        case 0:
-        SpellIncantation = "PC_AsG_Adv7aSlyth_23";
-        break;
-        case 1:
-        SpellIncantation = "PC_AsG_Emote_10";
-        break;
-        case 1:
-        SpellIncantation = "PC_AsG_Emote_10a";
-        break;
-        default:
-      }
-      break;
-      case SPELL_Diffindo:
-      switch (Rand(2))
-      {
-        case 0:
-        SpellIncantation = "PC_AsG_Adv7aSlyth_22";
-        break;
-        case 1:
-        SpellIncantation = "PC_AsG_Emote_11";
-        break;
-        case 1:
-        SpellIncantation = "PC_AsG_Emote_11a";
-        break;
-        default:
-      }
-      break;
-      case SPELL_Rictusempra:
-      case SPELL_DuelRictusempra:
-      switch (Rand(2))
-      {
-        case 0:
-        SpellIncantation = "PC_AsG_Adv7aSlyth_18";
-        break;
-        case 1:
-        SpellIncantation = "PC_AsG_Emote_07";
-        break;
-        case 1:
-        SpellIncantation = "PC_AsG_Emote_07a";
-        break;
-        default:
-      }
-      break;
-      //case 21:
-      //case 26:
-      //case SPE:
-      default:
-      break;
-    }
-  } else {
-    switch (SpellType)
-    {
-      case SPELL_Alohomora:
-      switch (Rand(3))
-      {
-        case 0:
-        SpellIncantation = "PC_Hry_SpellCast_01a";
-        break;
-        case 1:
-        SpellIncantation = "PC_Hry_SpellCast_01b";
-        break;
-        case 2:
-        SpellIncantation = "PC_Hry_SpellCast_01c";
-        break;
-        default:
-      }
-      break;
-      case SPELL_Flipendo:
-      switch (Rand(3))
-      {
-        case 0:
-        SpellIncantation = "PC_Hry_SpellCast_02a";
-        break;
-        case 1:
-        SpellIncantation = "PC_Hry_SpellCast_02b";
-        break;
-        case 2:
-        SpellIncantation = "PC_Hry_SpellCast_02c";
-        break;
-        default:
-      }
-      break;
-      case SPELL_Lumos:
-      switch (Rand(3))
-      {
-        case 0:
-        SpellIncantation = "PC_Hry_SpellCast_03a";
-        break;
-        case 1:
-        SpellIncantation = "PC_Hry_SpellCast_03b";
-        break;
-        case 2:
-        SpellIncantation = "PC_Hry_SpellCast_03c";
-        break;
-        default:
-      }
-      break;
-      case SPELL_Skurge:
-      switch (Rand(3))
-      {
-        case 0:
-        SpellIncantation = "PC_Hry_SpellCast_04a";
-        break;
-        case 1:
-        SpellIncantation = "PC_Hry_SpellCast_04b";
-        break;
-        case 2:
-        SpellIncantation = "PC_Hry_SpellCast_04c";
-        break;
-        default:
-      }
-      break;
-      case SPELL_Diffindo:
-      switch (Rand(3))
-      {
-        case 0:
-        SpellIncantation = "PC_Hry_SpellCast_05a";
-        break;
-        case 1:
-        SpellIncantation = "PC_Hry_SpellCast_05b";
-        break;
-        case 2:
-        SpellIncantation = "PC_Hry_SpellCast_05c";
-        break;
-        default:
-      }
-      break;
-      case SPELL_Rictusempra:
-      case SPELL_DuelRictusempra:
-      switch (Rand(3))
-      {
-        case 0:
-        SpellIncantation = "PC_Hry_SpellCast_06a";
-        break;
-        case 1:
-        SpellIncantation = "PC_Hry_SpellCast_06b";
-        break;
-        case 2:
-        SpellIncantation = "PC_Hry_SpellCast_06c";
-        break;
-        default:
-      }
-      break;
-      case SPELL_Spongify:
-      switch (Rand(3))
-      {
-        case 0:
-        SpellIncantation = "PC_Hry_SpellCast_07a";
-        break;
-        case 1:
-        SpellIncantation = "PC_Hry_SpellCast_07b";
-        break;
-        case 2:
-        SpellIncantation = "PC_Hry_SpellCast_07c";
-        break;
-        default:
-      }
-      break;
-      case SPELL_DuelMimblewimble:
-      switch (Rand(3))
-      {
-        case 0:
-        SpellIncantation = "PC_Hry_SpellCast_08a";
-        break;
-        case 1:
-        SpellIncantation = "PC_Hry_SpellCast_08b";
-        break;
-        case 2:
-        SpellIncantation = "PC_Hry_SpellCast_08c";
-        break;
-        default:
-      }
-      break;
-      case SPELL_DuelExpelliarmus:
-      switch (Rand(3))
-      {
-        case 0:
-        SpellIncantation = "PC_Hry_SpellCast_09a";
-        break;
-        case 1:
-        SpellIncantation = "PC_Hry_SpellCast_09b";
-        break;
-        case 2:
-        SpellIncantation = "PC_Hry_SpellCast_09c";
-        break;
-        default:
-      }
-      SpellIncantation = "";
-      break;
-      default:
-    }
-  }
-  if ( SpellIncantation != "" )
-  {
-    PlaySound(Sound(DynamicLoadObject("AllDialog." $ SpellIncantation,Class'Sound')),SLOT_Talk,0.75,True);
-  }
+	if ( bIsGoyle )
+	{
+		IncantationArray = Default.SpellType.GoyleIncants;
+	}
+	else
+	{
+		IncantationArray = Default.SpellType.HarryIncants;
+	}
+
+	if(IncantationArray != None)
+	{
+		RandIndex = Rand(IncantationArray.Length);
+		IncantationString = IncantationArray[RandIndex];
+
+		if ( IncantationString != "" )
+		{
+			PlaySound(Sound(DynamicLoadObject("AllDialog." $ SpellIncantation,Class'Sound')),SLOT_Talk,0.75,True);
+		}
+	}
 }
 
+/* TODO: Move to baseWand
 function PlaySpellCastSound (ESpellType SpellType)
 {
   local Sound SpellSound;
@@ -2996,120 +2716,7 @@ function PlaySpellCastSound (ESpellType SpellType)
     PlaySound(SpellSound,SLOT_None);
   }
 }
-
-/*
-function PlayLandedSound()
-{
-  local Sound Step;
-  local float decision;
-  local Texture HitTexture;
-  local int Flags;
-  local float vol;
-
-  if ( FootRegion.Zone.bWaterZone )
-  {
-    PlaySound(WaterStep,SLOT_Interact,1.0,False,1000.0,1.0);
-    return;
-  }
-  HitTexture = TraceTexture(Location + vect(0.00,0.00,-128.00),Location,Flags);
-  Step = Sound'HAR_landing_stone';
-  switch (HitTexture.FootstepSound)
-  {
-    case 2:
-    break;
-    case 4:
-    case 6:
-    case 1:
-    Step = Sound'HAR_landing_rug';
-    break;
-    case 0:
-    case 3:
-    Step = Sound'HAR_landing_stone';
-    break;
-    case 5:
-    Step = Sound'HAR_landing_wet';
-    break;
-    case 7:
-    Step = Sound'HAR_landing_metal';
-    break;
-    default:
-  }
-  if ( fTimeInAir < 1.0 )
-  {
-    vol = 0.31 * fTimeInAir;
-  } else {
-    vol = 0.31 + (fTimeInAir - 1.0) * 0.69999999 / 0.5;
-  }
-  if ( Location.Z < fFallingZ - byte(40) )
-  {
-    vol *= byte(2);
-  }
-  PlaySound(Step,3,vol,False,1000.0,0.89999998);
-  HearHarryRecipient.PawnHearHarryNoise();
-  MakeNoise(10.0);
-}
 */
-
-function PlayLandedSound()
-{
-	local sound   step;
-	local float   decision;
-	local Texture HitTexture;
-	local int     Flags;
-	local float   vol;
-
-	if ( FootRegion.Zone.bWaterZone )
-	{
-		PlaySound(WaterStep, SLOT_Interact, 1, false, 1000.0, 1.0);
-		return;
-	}
-
-	HitTexture = TraceTexture(Location + (vect(0,0,-128)), Location, Flags );
-
-	step = Sound'HPSounds.FootSteps.HAR_Landing_stone';
-
-	switch( HitTexture.FootstepSound )
-	{
-		case FOOTSTEP_Wood:
-		//	step = Sound'HPSounds.FootSteps.HAR_Landing_wood';
-			break;
-
-		case FOOTSTEP_cloud:
-		case FOOTSTEP_grass:
-		case FOOTSTEP_Rug:
-			step = Sound'HPSounds.FootSteps.HAR_Landing_rug';
-			break;
-
-		case FOOTSTEP_Stone:
-		case FOOTSTEP_cave:
-			step = Sound'HPSounds.FootSteps.HAR_Landing_stone';
-			break;
-
-		case FOOTSTEP_wet:
-			step = Sound'HPSounds.FootSteps.HAR_Landing_wet';
-			break;
-
-		case FOOTSTEP_metal:
-			step = Sound'HPSounds.FootSteps.HAR_Landing_metal';
-			break;
-	}
-
-	if( fTimeInAir < 1.0 )
-		vol = 0.3 * fTimeInAir;
-	else
-		vol = 0.3 + (fTimeInAir - 1.0) * 0.7/0.5;
-
-	//if you fell, rather than jumped, make the sound louder
-	if( Location.z < fFallingZ - 40 )
-		vol *= 2;
-
-	PlaySound(step, SLOT_Interact, vol, false, 1000.0, 0.9);
-	
-//	PlaySound(step, SLOT_Misc, vol, false, 1000.0);
-
-	HearHarryRecipient.PawnHearHarryNoise();
-	MakeNoise( 10 );
-}
 
 function PlayTurning()
 {
@@ -3118,118 +2725,104 @@ function PlayTurning()
 
 function TweenToRunning (float TweenTime)
 {
-  local Vector X;
-  local Vector Y;
-  local Vector Z;
-  local Vector Dir;
+	local Vector X;
+	local Vector Y;
+	local Vector Z;
+	local Vector Dir;
 
-  BaseEyeHeight = Default.BaseEyeHeight;
-  if (  !HarryAnimChannel.PlayHarryMovementAnims() )
-  {
-    return;
-  }
-  GetAxes(Rotation,X,Y,Z);
-  Dir = Normal(Acceleration);
-  if ( (Dir Dot X < 0.75) && (Dir != vect(0.00,0.00,0.00)) )
-  {
-    if ( Dir Dot X < -0.75 )
-    {
-      LoopAnim(HarryAnims[HarryAnimSet].WalkBack,0.89999998,[TweenTime]TweenTime,,[Type]HarryAnimType);
-      bMovingBackwards = True;
-    } else //{
-      if ( Dir Dot Y > 0 )
-      {
-        LoopAnim(HarryAnims[HarryAnimSet].StrafeRight,0.89999998,[TweenTime]TweenTime,,[Type]HarryAnimType);
-      } else {
-        LoopAnim(HarryAnims[HarryAnimSet].StrafeLeft,0.89999998,[TweenTime]TweenTime,,[Type]HarryAnimType);
-      }
-    //}
-  } else {
-    LoopAnim(HarryAnims[HarryAnimSet].run,0.89999998,[TweenTime]TweenTime,,[Type]HarryAnimType);
-    bMovingBackwards = False;
-  }
+	GetAxes(Rotation,X,Y,Z);
+	Dir = Normal(Acceleration);
+
+	if ( (Dir Dot X < 0.75) && (Dir != vect(0,0,0)) )
+	{
+		if ( Dir Dot X < -0.75 )
+		{
+			LoopAnim(HarryAnims[HarryAnimSet].WalkBack,0.9,[TweenTime]TweenTime,,[Type]HarryAnimType);
+		}
+		else if ( Dir Dot Y > 0 )
+		{
+			LoopAnim(HarryAnims[HarryAnimSet].StrafeRight,0.9,[TweenTime]TweenTime,,[Type]HarryAnimType);
+		}
+		else
+		{
+			LoopAnim(HarryAnims[HarryAnimSet].StrafeLeft,0.9,[TweenTime]TweenTime,,[Type]HarryAnimType);
+		}
+	}
+	else
+	{
+		LoopAnim(HarryAnims[HarryAnimSet].run,0.9,[TweenTime]TweenTime,,[Type]HarryAnimType);
+	}
 }
 
 function PlayRunning()
 {
-  TweenToRunning(0.0);
+	TweenToRunning(0.0);
 }
 
 function PlayInAir()
 {
-  LoopAnim(AnimFalling,,[TweenTime]0.4,,[Type]HarryAnimType);
-  ClientMessage(" animFalling = " $ string(AnimFalling));
-}
-
-function PlayDuck()
-{
-  BaseEyeHeight = 0.0;
-  TweenAnim('SneakF',0.25);
-}
-
-function PlayCrawling()
-{
-  BaseEyeHeight = 0.0;
-  LoopAnim('SneakF');
+	LoopAnim(AnimFalling,,[TweenTime]0.4,,[Type]HarryAnimType);
+	ClientMessage(" animFalling = " $ string(AnimFalling));
 }
 
 function PlayIdle()
 {
-  if ( Mesh == None )
-  {
-    return;
-  }
-  CurrIdleAnimName = GetCurrIdleAnimName();
-  LoopAnim(CurrIdleAnimName,0.8,0.25,,HarryAnimType);
+	if ( Mesh == None )
+	{
+		return;
+	}
+	CurrIdleAnimName = GetCurrIdleAnimName();
+	LoopAnim(CurrIdleAnimName,0.8,0.25,,HarryAnimType);
 }
 
 function PlayWaiting()
 {
-  if ( Mesh == None )
-  {
-    return;
-  }
-  WaitingCount++;
-  if ( WaitingCount < 3 )
-  {
-    CurrIdleAnimName = GetCurrIdleAnimName();
-    LoopAnim(CurrIdleAnimName,0.40 + 0.40 * FRand(),0.25,,HarryAnimType);
-    return;
-  }
-  if ( FRand() < 0.5 )
-  {
-    CurrIdleAnimName = GetCurrIdleAnimName();
-    LoopAnim(CurrIdleAnimName,0.40 + 0.40 * FRand(),0.25,,HarryAnimType);
-  } else {
-    WaitingCount = 0;
-    CurrFidgetAnimName = GetCurrFidgetAnimName();
-    if ( bVeryAfraid == True )
-    {
-      PlayAnim('look_frantic',1.0,0.2,HarryAnimType);
-    } else {
-      PlayAnim(CurrFidgetAnimName,0.5 + 0.5 * FRand(),0.3,HarryAnimType);
-    }
-  }
+	if ( Mesh == None )
+	{
+		return;
+	}
+
+	WaitingCount++;
+
+	if ( WaitingCount < 3 )
+	{
+		CurrIdleAnimName = GetCurrIdleAnimName();
+		LoopAnim(CurrIdleAnimName,0.40 + 0.40 * FRand(),0.25,,HarryAnimType);
+		return;
+	}
+
+	if ( FRand() < 0.5 )
+	{
+		CurrIdleAnimName = GetCurrIdleAnimName();
+		LoopAnim(CurrIdleAnimName,0.40 + 0.40 * FRand(),0.25,,HarryAnimType);
+	}
+	else
+	{
+		WaitingCount = 0;
+		CurrFidgetAnimName = GetCurrFidgetAnimName();
+
+		if ( BossTarget != None )
+		{
+			PlayAnim('look_frantic',1.0,0.2,HarryAnimType);
+		}
+		else
+		{
+			PlayAnim(CurrFidgetAnimName,0.5 + 0.5 * FRand(),0.3,HarryAnimType);
+		}
+	}
 }
 
 function TweenToWaiting (float TweenTime)
 {
-  if (  !HarryAnimChannel.PlayHarryMovementAnims() )
-  {
-    return;
-  }
-  if ( PlayingFidgetAnimation(AnimSequence) )
-  {
-    return;
-  }
-  if ( AnimSequence == 'look_frantic' )
-  {
-    return;
-  }
-  CurrIdleAnimName = GetCurrIdleAnimName();
-  LoopAnim(CurrIdleAnimName,,[TweenTime]TweenTime,,[Type]HarryAnimType);
+	if (!PlayingFidgetAnimation(AnimSequence) && AnimSequence != 'look_frantic')
+	{
+		CurrIdleAnimName = GetCurrIdleAnimName();
+		LoopAnim(CurrIdleAnimName,,[TweenTime]TweenTime,,[Type]HarryAnimType);CurrIdleAnimName = GetCurrIdleAnimName();
+		LoopAnim(CurrIdleAnimName,,[TweenTime]TweenTime,,[Type]HarryAnimType);
+	}
 }
 
+// TODO: Move to basewand
 function Cast()
 {
   local Actor BestTarget;
@@ -3366,7 +2959,7 @@ function Cast()
   TurnOffSpellCursor();
 }
 
-function Fire (optional float f)
+/* function Fire (optional float f)
 {
   if ( Weapon != None && bJustFired == False )
   {
@@ -3397,6 +2990,25 @@ exec function AltFire (optional float f)
       StartAiming(bHarryUsingSword);
     }
   }
+} */
+
+exec function AltFire (optional float f)
+{
+	if ( HarryAnimChannel.IsCarryingActor() )
+	{
+		if ( bThrow == False && IsInState('PlayerWalking'))
+		{
+			HarryAnimChannel.GotoStateThrow();
+			bThrow = True;
+		}
+	}
+	else
+	{
+		if ( Weapon.IsA('HWeapon') && !HarryAnimChannel.IsInState('stateCasting') )
+		{
+			HWeapon(Weapon).PrimaryFireAction();
+		}
+	}
 }
 
 event Mount (Vector Delta)
@@ -3671,7 +3283,7 @@ function TurnOffSpellCursor()
   GroundSpeed = GroundRunSpeed;
 }
 
-function TurnOnCastingVars (bool in_bHarryUsingSword)
+/* function TurnOnCastingVars (bool in_bHarryUsingSword)
 {
   bIsAiming = True;
   bIsAimingWithCharge = True;
@@ -3686,7 +3298,7 @@ function TurnOnCastingVars (bool in_bHarryUsingSword)
   } else {
     baseWand(Weapon).StartChargingSpell(False,in_bHarryUsingSword);
   }
-}
+} */
 
 function bool PlayerIsAiming()
 {
@@ -4118,28 +3730,20 @@ state PlayerWalking
     }
   }
   
-  function StartAiming (bool in_bHarryUsingSword)
+/*   function StartAiming (bool in_bHarryUsingSword)
   {
-    if (  !bIsAiming && (CarryingActor == None)  )
-    {
-      TurnOnCastingVars(in_bHarryUsingSword);
-      bJustFired = False;
-      bJustAltFired = False;
-      HPConsole(Player.Console).bSpaceReleased = False;
-      HPConsole(Player.Console).bSpacePressed = False;
-      if ( in_bHarryUsingSword )
-      {
-        PlaySound(Sound'sword_buildup',SLOT_Interact);
-      } 
-	  else 
-	  {
-        StartAimSoundFX();
-        makeTarget();
-      }
-      HarryAnimChannel.GotoStateCasting(in_bHarryUsingSword);
-      HarryAnimType = AT_Combine;
-    }
-  }
+		if ( !bIsAiming && (CarryingActor == None) )
+		{
+			//TurnOnCastingVars(in_bHarryUsingSword);
+			bJustFired = False;
+			bJustAltFired = False;
+			HPConsole(Player.Console).bSpaceReleased = False;
+			HPConsole(Player.Console).bSpacePressed = False;
+
+			HarryAnimChannel.GotoStateCasting(in_bHarryUsingSword);
+			HarryAnimType = AT_Combine;
+		}
+  } */
   
   function Landed(vector HitNormal)
   {
@@ -4147,7 +3751,7 @@ state PlayerWalking
 	local int   i;
 	local SpongifyPad sp; //added by me for compatibility code -AdamJD
 
-	clientMessage("landed: jump dist = " $VSize(Location-MountDelta) $ "   tia="$fTimeInAir);
+	clientMessage("landed: jump dist = " $VSize(Location-MountDelta) $ "   tia="$AirTime);
 		
 	Global.Landed(HitNormal);
 
@@ -4196,7 +3800,7 @@ state PlayerWalking
 		&& (!bNoFallingDamage && NoFallingDamageTimer == 0) ) //only take damage if no falling damage stuff is off (UTPT didn't add this) -AdamJD
 	{
 		// we are doing a regular fall animation
-		ClientMessage("Z Fall Distance = " $(HighestZ-location.z) $" TimeInAir = " $fTimeInAir
+		ClientMessage("Z Fall Distance = " $(HighestZ-location.z) $" TimeInAir = " $AirTime
 						$"ZHighest = " $HighestZ $"ZLoc = " $location.z );
 									
 		fFallDistanceZ = (HighestZ-location.z);
@@ -4412,10 +4016,10 @@ state PlayerWalking
 			HighestZ = location.z;
 		}
 			
-		fLastTimeInAir = fTimeInAir;
-		fTimeInAir += DeltaTime;
+		fLastTimeInAir = AirTime;
+		AirTime += DeltaTime;
 
-		if( !bPlayedFallSound  &&  fTimeInAir > 1.5 )
+		if( !bPlayedFallSound  &&  AirTime > 1.5 )
 		{
 			bPlayedFallSound = true;
 
@@ -4424,13 +4028,13 @@ state PlayerWalking
 				PlayFallDeepEmoteSound(); //decide which fall deep sound to play (UTPT didn't add this) -AdamJD
 		}
 
-		if( fLastTimeInAir <= 0.35   &&   fTimeInAir > 0.35 )
+		if( fLastTimeInAir <= 0.35   &&   AirTime > 0.35 )
 			PlayInAir();
 	}
 	else
 	{
 		bPlayedFallSound = false;
-		fTimeInAir = 0;
+		AirTime = 0;
 	}
 
 	eLastPhysState = Physics;
@@ -4438,7 +4042,7 @@ state PlayerWalking
   
   function JumpOffPawn()
   {
-    fTimeInAir = 0.0;
+    AirTime = 0.0;
     Super.JumpOffPawn();
   }
   
@@ -6118,6 +5722,8 @@ defaultproperties
     fDamageMultiplier_Medium=2.00
 
     fDamageMultiplier_Hard=3.00
+
+	fDamageMultiplier_Custom=5.00
 
     fMinDamageScalar=1.00
 

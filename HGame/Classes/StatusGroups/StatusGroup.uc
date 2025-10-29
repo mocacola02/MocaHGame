@@ -2,7 +2,7 @@
 // StatusGroup.
 //================================================================================
 
-class StatusGroup extends Actor
+class StatusGroup extends HActor
 	Abstract; 
 
 enum EMenuProps 

@@ -2,7 +2,7 @@
 // QuidditchTauntMgr.
 //================================================================================
 
-class QuidditchTauntMgr extends Actor;
+class QuidditchTauntMgr extends HActor;
 
 const fMinTimeBeforeLineRepeat= 120.0;
 const fMaxGapTimeBetweenLines= 10.0;

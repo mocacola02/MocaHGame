@@ -3,7 +3,7 @@
 //================================================================================
 // Omega: Fix the desired fov issue
 
-class FOVController extends Actor;
+class FOVController extends HActor;
 
 const EaseFromB= -0.171573;
 const EaseFromM=  1.171573;

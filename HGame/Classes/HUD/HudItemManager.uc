@@ -2,7 +2,7 @@
 // HudItemManager.
 //================================================================================
 
-class HudItemManager extends Actor;
+class HudItemManager extends HActor;
 
 const BASE_RESOLUTION_X = 640.0;
 const BASE_RESOLUTION_Y = 480.0;

@@ -2,7 +2,7 @@
 // FadeActorController.
 //================================================================================
 
-class FadeActorController extends Actor;
+class FadeActorController extends HActor;
 
 var() float TimeEnd;
 var() float FadeEnd;
