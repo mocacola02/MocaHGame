@@ -1678,8 +1678,8 @@ function int CollectibleCount(optional class<HCollectible> CollectibleClass)
 	}
 	else
 	{
-		sgClass = Default.CollectibleClass.classStatusGroup;
-		siClass = Default.CollectibleClass.classStatusItem;
+		sgClass = CollectibleClass.Default.classStatusGroup;
+		siClass = CollectibleClass.Default.classStatusItem;
 	}
 
 	sg = managerStatus.GetStatusGroup(sgClass);
@@ -2295,115 +2295,115 @@ simulated function PlayFootStep(optional float Volume)
 			switch (HitTexture.FootstepSound)
 			{
 				case FOOTSTEP_Stone:
-					FootSteps = Default.FootstepSoundSet.StoneSteps;
+					FootSteps = FootstepSoundSet.Default.StoneSteps;
 					NoiseLevel = 10.0;
 					break;
 				case FOOTSTEP_Rug:
-					FootSteps = Default.FootstepSoundSet.RugSteps;
+					FootSteps = FootstepSoundSet.Default.RugSteps;
 					NoiseLevel = 2.0;
 					break;
 				case FOOTSTEP_Wood:
-					FootSteps = Default.FootstepSoundSet.WoodSteps;
+					FootSteps = FootstepSoundSet.Default.WoodSteps;
 					NoiseLevel = 8.0;
 					break;
 				case FOOTSTEP_Cave:
-					FootSteps = Default.FootstepSoundSet.CaveSteps;
+					FootSteps = FootstepSoundSet.Default.CaveSteps;
 					NoiseLevel = 10.0;
 				case FOOTSTEP_Cloud:
-					FootSteps = Default.FootstepSoundSet.CloudSteps;
+					FootSteps = FootstepSoundSet.Default.CloudSteps;
 					NoiseLevel = 1.0;
 					break;
 				case FOOTSTEP_Wet:
-					FootSteps = Default.FootstepSoundSet.WetSteps;
+					FootSteps = FootstepSoundSet.Default.WetSteps;
 					NoiseLevel = 8.0;
 					break;
 				case FOOTSTEP_Grass:
-					FootSteps = Default.FootstepSoundSet.WetSteps;
+					FootSteps = FootstepSoundSet.Default.WetSteps;
 					NoiseLevel = 2.0;
 					break;
 				case FOOTSTEP_Metal:
-					FootSteps = Default.FootstepSoundSet.MetalSteps;
+					FootSteps = FootstepSoundSet.Default.MetalSteps;
 					NoiseLevel = 10.0;
 					break;
 				case FOOTSTEP_Snow:
-					FootSteps = Default.FootstepSoundSet.SnowSteps;
+					FootSteps = FootstepSoundSet.Default.SnowSteps;
 					NoiseLevel = 3.0;
 					break;
 				case FOOTSTEP_Sand:
-					FootSteps = Default.FootstepSoundSet.SandSteps;
+					FootSteps = FootstepSoundSet.Default.SandSteps;
 					NoiseLevel = 4.0;
 					break;
 				case FOOTSTEP_Gravel:
-					FootSteps = Default.FootstepSoundSet.GravelSteps;
+					FootSteps = FootstepSoundSet.Default.GravelSteps;
 					NoiseLevel = 5.0;
 					break;
 				case FOOTSTEP_lava:
-					FootSteps = Default.FootstepSoundSet.LavaSteps;
+					FootSteps = FootstepSoundSet.Default.LavaSteps;
 					NoiseLevel = 1.0;
 					break;
 				case FOOTSTEP_drylava:
-					FootSteps = Default.FootstepSoundSet.DryLavaSteps;
+					FootSteps = FootstepSoundSet.Default.DryLavaSteps;
 					NoiseLevel = 10.0;
 					break;
 				case FOOTSTEP_Rubble:
-					FootSteps = Default.FootstepSoundSet.RubbleSteps;
+					FootSteps = FootstepSoundSet.Default.RubbleSteps;
 					NoiseLevel = 10.0;
 					break;
 				case FOOTSTEP_MetalHollow:
-					FootSteps = Default.FootstepSoundSet.MetalHollowSteps;
+					FootSteps = FootstepSoundSet.Default.MetalHollowSteps;
 					NoiseLevel = 10.0;
 					break;
 				case FOOTSTEP_MetalPipe:
-					FootSteps = Default.FootstepSoundSet.MetalPipeSteps;
+					FootSteps = FootstepSoundSet.Default.MetalPipeSteps;
 					NoiseLevel = 10.0;
 					break;
 				case FOOTSTEP_Grate:
-					FootSteps = Default.FootstepSoundSet.GrateSteps;
+					FootSteps = FootstepSoundSet.Default.GrateSteps;
 					NoiseLevel = 10.0;
 					break;
 				case FOOTSTEP_Dirt:
-					FootSteps = Default.FootstepSoundSet.DirtSteps;
+					FootSteps = FootstepSoundSet.Default.DirtSteps;
 					NoiseLevel = 3.0;
 					break;
 				case FOOTSTEP_Glass:
-					FootSteps = Default.FootstepSoundSet.GlassSteps;
+					FootSteps = FootstepSoundSet.Default.GlassSteps;
 					NoiseLevel = 7.0;
 					break;
 				case FOOTSTEP_BrokenGlass:
-					FootSteps = Default.FootstepSoundSet.BrokenGlassSteps;
+					FootSteps = FootstepSoundSet.Default.BrokenGlassSteps;
 					NoiseLevel = 10.0;
 					break;
 				case FOOTSTEP_Ice:
-					FootSteps = Default.FootstepSoundSet.IceSteps;
+					FootSteps = FootstepSoundSet.Default.IceSteps;
 					NoiseLevel = 7.0;
 					break;
 				case FOOTSTEP_Forcefield:
-					FootSteps = Default.FootstepSoundSet.ForcefieldSteps;
+					FootSteps = FootstepSoundSet.Default.ForcefieldSteps;
 					NoiseLevel = 10.0;
 					break;
 				case FOOTSTEP_CreakyWood:
-					FootSteps = Default.FootstepSoundSet.CreakyWoodSteps;
+					FootSteps = FootstepSoundSet.Default.CreakyWoodSteps;
 					NoiseLevel = 12.0;
 					break;
 				case FOOTSTEP_Marble:
-					FootSteps = Default.FootstepSoundSet.MarbleSteps;
+					FootSteps = FootstepSoundSet.Default.MarbleSteps;
 					NoiseLevel = 8.0;
 					break;
 				case FOOTSTEP_SqueakyFloor:
-					FootSteps = Default.FootstepSoundSet.SqueakyFloorSteps;
+					FootSteps = FootstepSoundSet.Default.SqueakyFloorSteps;
 					NoiseLevel = 10.0;
 					break;
 				case FOORSTEP_HollowWood:
-					FootSteps = Default.FootstepSoundSet.HollowWoodSteps;
+					FootSteps = FootstepSoundSet.Default.HollowWoodSteps;
 					NoiseLevel = 6.0;
 					break;
 				case FOOTSTEP_WetStone:
-					FootSteps = Default.FootstepSoundSet.WetStoneSteps;
+					FootSteps = FootstepSoundSet.Default.WetStoneSteps;
 					NoiseLevel = 8.0;
 					break;
 
 				default:
-					Footsteps = Default.FootstepSoundSet.StoneSteps;
+					Footsteps = FootstepSoundSet.Default.StoneSteps;
 					NoiseLevel = 10.0;
 					break;
 			}
@@ -2655,11 +2655,11 @@ function PlayIncantationEmoteSound (class<baseSpell> SpellType)
 
 	if ( bIsGoyle )
 	{
-		IncantationArray = Default.SpellType.GoyleIncants;
+		IncantationArray = SpellType.Default.GoyleIncants;
 	}
 	else
 	{
-		IncantationArray = Default.SpellType.HarryIncants;
+		IncantationArray = SpellType.Default.HarryIncants;
 	}
 
 	if(IncantationArray != None)

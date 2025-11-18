@@ -6,6 +6,7 @@ class HWeapon extends Weapon;
 
 var harry PlayerHarry;
 var cHarryAnimChannel HarryAnimChannel;
+var BaseCam HarryCam;
 
 function SecondaryFireAction();
 function PrimaryFireAction();
@@ -22,7 +23,8 @@ event PostBeginPlay()
 		return;
 	}
 
-	
+	HarryAnimChannel = PlayerHarry.HarryAnimChannel;
+	HarryCam = PlayerHarry.Cam;
 }
 
 // Moca: I'm adding this since 1) I'm used to print() in Godot lmfao and 2) I can have it clearly mark the "speaker" of the message
@@ -48,7 +50,7 @@ function ChangePlayer(harry NewPlayer)
 	if (PlayerHarry != harry(Level.PlayerHarryActor))
 	{
 		PlayerHarry = harry(Level.PlayerHarryActor);
-		CMAndLog(string(self) $ " says: ")
+		CMAndLog(string(self) $ " says: The new player is " $ string(PlayerHarry) $ "!")
 	}
 }
 

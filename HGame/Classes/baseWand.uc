@@ -15,6 +15,7 @@ var class<ParticleFX> ChargeParticleFXClass;
 var bool bGlowingWand;
 var bool bInstantFire;
 var baseSpell LastCastedSpell;
+var float AutoHitDistance;
 
 event PostBeginPlay()
 {
@@ -114,7 +115,7 @@ function StopChargingSpell()
 function Class<ParticleFX> GetChargeParticleClass (Class<baseSpell> spellClass)
 {
 	local class<ParticleFX> fxClass;
-	fxClass = Default.spellClass.SpellFX.ChargeParticleClass;
+	fxClass = spellClass.Default.SpellFX.ChargeParticleClass;
 
 	if ( fxClass == None )
 	{
@@ -217,7 +218,7 @@ event Tick (float DeltaTime)
 		{
 			if (CurrentSpell == class'spellDuelExpelliarmus')
 			{
-				PlaySound(Default.class'spellDuelExpelliarmus'.CastSound);
+				PlaySound(class'spellDuelExpelliarmus'.Default.CastSound);
 			}
 		}
 	}
@@ -259,7 +260,7 @@ function CastSpell (optional Actor aTarget, optional Vector aTargetOffset, optio
 
 	StopChargingSpell();
 
-	if ( aTarget.IsA('HPawn') && (VSize(Location - aTarget.Location) < fAutoHitDistance) )
+	if ( aTarget.IsA('HPawn') && (VSize(Location - aTarget.Location) < AutoHitDistance) )
 	{
 		LastCastedSpell.ProcessTouch(aTarget,aTarget.Location);
 	}
@@ -298,23 +299,6 @@ function StopAimSound()
 {
 
 }
-
-/* function PrimaryFireAction()
-{
-	if ( PlayerHarry != None )
-	{
-		PlayerHarry.ClientInstantFlash(-0.4,vect(0.00,0.00,800.00));
-		PlayerHarry.ShakeView(ShakeTime,ShakeMag,ShakeVert);
-	}
-
-	FireSpell(AltProjectileClass,AltProjectileSpeed,bAltWarnTarget,False,None);
-	PlayAnim('All',0.8,0.05);
-	
-	if ( Owner.bHidden )
-	{
-		CheckVisibility();
-	}
-} */
 
 function Projectile FireSpell (Class<Projectile> ProjClass, float ProjSpeed, bool bWarn, optional bool bUseWeaponForProjRot, optional Actor aTarget)
 {
@@ -370,118 +354,75 @@ function Projectile FireSpell (Class<Projectile> ProjClass, float ProjSpeed, boo
 
 function bool IsLumosOn()
 {
-  return PlayerHarry.bLumosOn;
+	return PlayerHarry.bLumosOn;
 }
 
 function LumosTurnOn()
 {
-  LumosGlow.TurnOn();
+	LumosGlow.TurnOn();
 }
 
-function BecomeItem()
+function LumosTurnOff()
 {
-  Super.BecomeItem();
-  bHidden = False;
+	Lumosglow.TurnOff();
 }
 
 function Texture GetSpellIcon()
 {
-  if ( CurrentSpell != None )
-  {
-    return CurrentSpell.Default.SpellIcon;
-  } else {
-    return None;
-  }
+	if ( CurrentSpell != None )
+	{
+		return CurrentSpell.Default.SpellIcon;
+	}
+	else
+	{
+		return None;
+	}
 }
 
 function Inventory SpawnCopy (Pawn Other)
 {
-  local Inventory Copy;
-  local Inventory I;
+	local Inventory Copy;
 
-  Copy = Super.SpawnCopy(Other);
-  return Copy;
+	Copy = Super.SpawnCopy(Other);
+	return Copy;
 }
 
-function float RateSelf (out int bUseAltMode)
+function BecomeItem()
 {
-  return 99.0;
+	Super.BecomeItem();
+	bHidden = False;
 }
 
 function BecomePickup()
 {
-  Super.BecomePickup();
-}
-
-function Finish()
-{
-  if ( (Pawn(Owner).bFire != 0) && (FRand() < 0.6) )
-  {
-    Timer();
-  }
-  Super.Finish();
-}
-
-function PlayFiring()
-{
-  PlayAnim('All',0.5,0.05);
-}
-
-function PlayIdleAnim()
-{
+	Super.BecomePickup();
 }
 
 defaultproperties
 {
     bAutoSelectSpell=True
 
-    fAutoHitDistance=128.00
+    AutoHitDistance=128.00
 
     ChargeParticleFXClass=Class'HPParticle.Skurge_fly'
 
-    fSpellChargeTimeSpan=1.00
-
-    fSpellChargeStartScale=1.00
-
-    fSpellChargeEndScale=3.00
-
-    fSwordFXTimeSpan=2.00
-
-    fSwordLength=55.00
-
-    fSwordFXStartScale=0.10
-
-    fSwordFXEndScale=6.00
-
-    PickupAmmoCount=200
-
-    bSplashDamage=True
+    PickupAmmoCount=1
 
     FireOffset=(X=0.00,Y=-6.00,Z=-7.00)
 
-    AltProjectileClass=Class'baseSpell'
-
-    AimError=0.00
-
-    AltRefireRate=0.70
-
-    DeathMessage="%k inflicted mortal damage upon %o with the %w."
+    DeathMessage="%k inflicted magic damage upon %o with the %w."
 
     AutoSwitchPriority=4
 
-    InventoryGroup=4
+    InventoryGroup=0
 
-    PickupMessage="You got the ASMD"
+    PickupMessage="You got Harry's wand"
 
     ItemName="Wand"
-
-    PlayerViewOffset=(X=3.50,Y=-1.80,Z=-2.00)
 
     ThirdPersonMesh=SkeletalMesh'HPModels.WandMesh'
 
     Mesh=SkeletalMesh'HPModels.WandMesh'
-
-    bNoSmooth=False
 
     CollisionRadius=28.00
 

@@ -65,6 +65,6 @@ function ChangePlayer(harry NewPlayer)
 	if (PlayerHarry != harry(Level.PlayerHarryActor))
 	{
 		PlayerHarry = harry(Level.PlayerHarryActor);
-		CMAndLog(string(self) $ " says: ")
+		CMAndLog(string(self) $ " says: The new player is " $ string(PlayerHarry) $ "!")
 	}
 }

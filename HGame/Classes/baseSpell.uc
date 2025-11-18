@@ -50,6 +50,8 @@ var bool bUseDebugMode;
 var array<String> HarryIncants;
 var array<String> GoyleIncants;
 
+var Texture SpellGesture;
+
 function SetDebugMode (bool bOn)
 {
   bUseDebugMode = bOn;
