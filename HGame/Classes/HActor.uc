@@ -2,8 +2,6 @@
 // This may not be the most efficient method, so this is subject to change.
 class HActor extends Actor;
 
-var(Spells) class<baseSpell> WeakToSpell; // Moca: This replaces eVulnerableToSpell. Please do not use eVulnerableToSpell.
-
 var harry PlayerHarry;
 
 
@@ -38,23 +36,23 @@ function ResolveEVulnerableToSpell()
 {
 	if (eVulnerableToSpell != SPELL_None)
 	{
-		print("WARNING!!!! eVulnerableToSpell is obsolete! Please use WeakToSpell! Spells will still work, but this is not recommended.",true);
+		print("WARNING!!!! eVulnerableToSpell is obsolete! Please use SpellVulnerableTo! Spells will still work, but this is not recommended.",true);
 
 		switch(eVulnerableToSpell)
 		{
-			case SPELL_Alohomora: WeakToSpell = class'spellAlohomora'; break;
-			case SPELL_Lumos: WeakToSpell = class'spellLumos'; break;
-			case SPELL_Flipendo: WeakToSpell = class'spellFlipendo'; break;
-			case SPELL_Diffindo: WeakToSpell = class'spellDiffindo'; break;
-			case SPELL_Skurge: WeakToSpell = class'spellSkurge'; break;
-			case SPELL_Spongify: WeakToSpell = class'spellSpongify'; break;
-			case SPELL_Rictusempra: WeakToSpell = class'spellRictusempra'; break;
-			case SPELL_DuelRictusempra: WeakToSpell = class'spellDuelRictusempra'; break;
-			case SPELL_DuelMimblewimble: WeakToSpell = class'spellDuelMimblewimble'; break;
-			case SPELL_DuelExpelliarmus: WeakToSpell = class'spellDuelExpelliarmus'; break;
+			case SPELL_Alohomora: SpellVulnerableTo = class'spellAlohomora'; break;
+			case SPELL_Lumos: SpellVulnerableTo = class'spellLumos'; break;
+			case SPELL_Flipendo: SpellVulnerableTo = class'spellFlipendo'; break;
+			case SPELL_Diffindo: SpellVulnerableTo = class'spellDiffindo'; break;
+			case SPELL_Skurge: SpellVulnerableTo = class'spellSkurge'; break;
+			case SPELL_Spongify: SpellVulnerableTo = class'spellSpongify'; break;
+			case SPELL_Rictusempra: SpellVulnerableTo = class'spellRictusempra'; break;
+			case SPELL_DuelRictusempra: SpellVulnerableTo = class'spellDuelRictusempra'; break;
+			case SPELL_DuelMimblewimble: SpellVulnerableTo = class'spellDuelMimblewimble'; break;
+			case SPELL_DuelExpelliarmus: SpellVulnerableTo = class'spellDuelExpelliarmus'; break;
 			default:
-				CMAndLog(string(self) $ " says: Couldn't match eVulnerableToSpell to WeakToSpell, defaulting to Flipendo",true);
-				WeakToSpell = class'spellFlipendo';
+				CMAndLog(string(self) $ " says: Couldn't match eVulnerableToSpell to SpellVulnerableTo, defaulting to Flipendo",true);
+				SpellVulnerableTo = class'spellFlipendo';
 				break;
 		}
 	}

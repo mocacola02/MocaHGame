@@ -2,12 +2,8 @@
 // SpellCursor.
 //================================================================================
 
-class SpellCursor extends ParticleFX;
+class SpellCursor extends HActor;
 
-//texture package import -AdamJD
-#exec OBJ LOAD FILE=..\Textures\SpellShapes.utx PACKAGE=SpellShapes.SpellFX
-
-var harry PlayerHarry;
 var Actor aPossibleTarget;
 var Actor CurrentTarget;
 var Vector TraceDirection;
@@ -26,52 +22,57 @@ var BaseCam PlayerCam;
 var class<ParticleFX> IdleFX;
 var class<ParticleFX> SeekingFX;
 var class<ParticleFX> LockedFX;
+var ParticleFX IdleParticles;
+var ParticleFX SeekingParticles;
+var ParticleFX LockedParticles;
 
-function bool IsLockedOn()
-{
-	return CurrentTarget != None;
-}
-
-function PreBeginPlay()
+event PreBeginPlay()
 {
 	PlayerHarry = harry(Level.PlayerHarryActor);
 
 	InitDependencies();
 
-	if ( bSpellCursorAlwaysOn && !bInvisibleCursor)
-	{
-		EnableEmission(False);
-	}
-
 	SpellGesture = Spawn(Class'GestureSprite');
 }
 
-function ChangePlayer(harry NewPlayer)
+event Destroyed()
 {
-	if (PlayerHarry != harry(Level.PlayerHarryActor))
+	if ( SpellGesture != None )
 	{
-		PlayerHarry = harry(Level.PlayerHarryActor);
-		CMAndLog(string(self) $ " says: The new player is " $ string(PlayerHarry) $ "!")
-		InitDependencies();
+		SpellGesture.Destroy();
 	}
+	if (IdleParticles != None)
+	{
+		IdleParticles.Shutdown();
+	}
+	if (SeekingParticles != None)
+	{
+		SeekingParticles.Shutdown();
+	}
+	if (LockedParticles != None)
+	{
+		LockedParticles.Shutdown();
+	}
+
+	Super.Destroyed();
 }
 
 function InitDependencies()
 {
 	if (PlayerHarry != None)
 	{
-		PlayerCam = PlayerCam;
+		PlayerCam = PlayerHarry.Cam;
 	}
+
+	SpellGesture = Spawn(Class'GestureSprite');
+	IdleParticles = Spawn(IdleFX);
+	SeekingParticles = Spawn(SeekingFX);
+	LockedParticles = Spawn(LockedFX);
 }
 
-function Destroyed()
+function bool IsLockedOn()
 {
-	if ( SpellGesture != None )
-	{
-		SpellGesture.Destroy();
-	}
-
-	Super.Destroyed();
+	return CurrentTarget != None;
 }
 
 function SetLOSDistance (float fNewDistance)
@@ -168,11 +169,6 @@ function UpdateCursor (optional bool bJustStopAtClosestPawnOrWall)
 	local Vector vHitLocation;
 	local float fDotProduct;
 
-	if ( bEmit == False && !bInvisibleCursor )
-	{
-		return;
-	}
-
 	bHitSomething = False;
 
 	TraceStart = PlayerCam.CamTarget.Location;
@@ -213,12 +209,12 @@ function UpdateCursor (optional bool bJustStopAtClosestPawnOrWall)
 			vFirstHitPos = vHitLocation;
 		}
 
-		if ( aHitActor.eVulnerableToSpell == SPELL_None )
+		if ( aHitActor.SpellVulnerableTo == None )
 		{
 			continue;
 		}
 
-		if ( PlayerHarry.IsSpellInBook(aHitActor.eVulnerableToSpell) || (bJustStopAtClosestPawnOrWall) )
+		if ( PlayerHarry.IsSpellInBook(aHitActor.SpellVulnerableTo) || (bJustStopAtClosestPawnOrWall) )
 		{
 			if ( aHitActor.IsA('spellTrigger') )
 			{
@@ -320,7 +316,7 @@ function LockOn (Actor TargetActor)
 		fFinalGestureDistance = (fTargetWidth *0.5f) + 2.0 + TargetActor.GestureDistance;
 	}
 
-	baseWand(PlayerHarry.Weapon).ChooseSpell(TargetActor.eVulnerableToSpell);
+	baseWand(PlayerHarry.Weapon).ChooseSpell(TargetActor.SpellVulnerableTo);
 
 	CurrentTarget = TargetActor;
 
@@ -616,22 +612,6 @@ defaultproperties
     Rotation=(Pitch=16640,Yaw=0,Roll=0)
 
     bRotateToDesired=True
-	
-	//wet texture paths, only way I can get these imported is to set them up here in the default properties -AdamJD
-	//
-	FlipendoWetTexture=WetTexture'SpellShapes.SpellFX.FlipendoWet1'
-	
-	LumosWetTexture=WetTexture'SpellShapes.SpellFX.LumosWet1'
-	
-	AlohomoraWetTexture=WetTexture'SpellShapes.SpellFX.AlohomoraWet1'
-	
-	SkurgeWetTexture=WetTexture'SpellShapes.SpellFX.SkurgeWet1'
-	
-	RictusempraWetTexture=WetTexture'SpellShapes.SpellFX.RictusWet1'
-	
-	DiffindoWetTexture=WetTexture'SpellShapes.SpellFX.DiffindoWet1'
-	
-	SpongifyWetTexture=WetTexture'SpellShapes.SpellFX.SpongifyWet1'
 
 	bEmit=False
 }
