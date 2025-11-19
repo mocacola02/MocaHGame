@@ -2,13 +2,27 @@
 // GestureSprite.
 //================================================================================
 
-class GestureSprite extends Sprite;
+class GestureSprite extends HActor;
 
-function PreBeginPlay()
+state stateIdle
 {
-  Super.PreBeginPlay();
-  SetCollision(,,);
-  bCollideWorld = False;
+	event BeginState()
+	{
+		bHidden = True;
+	}
+
+	event Tick(float DeltaTime);
+}
+
+state stateVisible
+{
+	event BeginState()
+	{
+		if ( Cursor == None )
+		{
+			Cursor = baseWand(PlayerHarry.Weapon).Cursor;
+		}
+	}
 }
 
 defaultproperties
@@ -18,15 +32,13 @@ defaultproperties
     Texture=None
 
     CollisionRadius=2.00
-
     CollisionHeight=2.00
 
     bCollideActors=False
-
     bCollideWorld=False
-
     bBlockActors=False
-
     bBlockPlayers=False
 
+	Physics=PHYS_None
+	DrawType=DT_Sprite
 }

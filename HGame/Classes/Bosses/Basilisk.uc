@@ -1098,7 +1098,7 @@ function CastSpitSpell (bool bAimAtHarry, optional bool bUseHeadYaw)
   A.PlaySound(Sound'Basilisk_spit_acid2',,BasilSoundVolume,,BasilSoundRadius,RandRange(0.80,1.20));
   if (  !bDidFirstBattle )
   {
-    A.fPoolShrinkTimeMult = 0.2;
+    A.PoolShrinkTimeMult = 0.2;
   }
 }
 

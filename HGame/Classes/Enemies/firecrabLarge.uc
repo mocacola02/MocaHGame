@@ -178,7 +178,7 @@ state throwing
       spellOrigin = spellOrigin + Vec(0.0,0.0,13.0);
       smallSpell = Spawn(Class'spellFireSmall',,,spellOrigin,Rotation);
       smallSpell.iDamage = smallSpellDamage;
-	  smallSpell.hitTarget = spellLocation;
+	  smallSpell.TargetActor.Location = spellLocation;
       smallSpell.fIncreaseHitTimeDistance = fSmallIncreaseHitTimeDistance;
       smallSpell.fHitTimeIncrement = fSmallHitTimeIncrement;
       smallSpell.iAccuracyMin = iAccuracyMin;

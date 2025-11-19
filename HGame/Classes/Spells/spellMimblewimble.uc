@@ -1,24 +1,26 @@
 //================================================================================
-// spellDiffindo.
+// spellMimblewimble.
 //================================================================================
 
-class spellDiffindo extends baseSpell;
+class spellMimblewimble extends baseSpell;
 
 defaultproperties
 {
     SpellIcon=None
 
-    SeekSpeed=6.00
+    SeekSpeed=0.00
 
-    FlyingParticleFX=Class'HPParticle.Diffindo_Fly'
+    fxFlyParticleEffectClass=Class'HPParticle.duelMimblewimble_fly'
 
-    HitParticleFX=Class'HPParticle.Diffindo_hit'
+    fxHitParticleEffectClass=Class'HPParticle.duelMimblewimble_hit'
 
     SpellIncantation="spells3"
 
     QuietSpellIncantation="spells4"
 
+    Speed=400.00
+
 	DrawType=DT_None
 
-	SpellName=Diffindo
+	SpellName=Mimblewimble
 }

@@ -10,8 +10,8 @@ enum enumTargetZone {
   ZONE_TWO
 };
 
-var(VisualFX) ParticleFX fxHeadParticleEffect;
-var(VisualFX) Class<ParticleFX> fxHeadParticleEffectClass;
+ 
+ 
 var(VisualFX) ParticleFX fxFlyParticleEffect;
 var(VisualFX) Class<ParticleFX> fxFlyParticleEffectClass;
 var enumTargetZone eTargetZone;
@@ -24,7 +24,7 @@ var float GlobalSpeed;
 var float fIncreaseHitTimeDistance;
 var float fHitTimeIncrement;
 var float timeToTarget;
-var Vector hitTarget;
+var Vector TargetActor.Location;
 var float GrenadeRadius;
 var float GrenadeBounceInterval;
 var float GrenadeGravity;
@@ -36,9 +36,9 @@ var float smallDamage;
 function PostBeginPlay()
 {
   Super.PostBeginPlay();
-  fxHeadParticleEffect = Spawn(fxHeadParticleEffectClass);
-  fxHeadParticleEffect.SetLocation(Location);
-  fxHeadParticleEffect.SetRotation(fxHeadParticleEffect.Default.Rotation);
+   MiscParticles = Spawn( MiscParticleFX);
+   MiscParticles.SetLocation(Location);
+   MiscParticles.SetRotation( MiscParticles.Default.Rotation);
   fxFlyParticleEffect = Spawn(fxFlyParticleEffectClass);
   fxFlyParticleEffect.SetLocation(Location);
   fxFlyParticleEffect.SetRotation(fxFlyParticleEffectClass.Default.Rotation);
@@ -56,9 +56,9 @@ function bool IsRelevantToMover()
 
 function OnSpellShutdown()
 {
-  if ( fxHeadParticleEffect != None )
+  if (  MiscParticles != None )
   {
-    fxHeadParticleEffect.Shutdown();
+     MiscParticles.Shutdown();
   }
   if ( fxFlyParticleEffect != None )
   {
@@ -217,10 +217,10 @@ state StateFlying
   function BeginState()
   {
     fGravityEffect = GrenadeGravity;
-    hitTarget = GetTarget();
+    TargetActor.Location = GetTarget();
     timeToTarget = getTime();
-    Velocity = (hitTarget - Location) / timeToTarget;
-    Velocity.Z = ((hitTarget.Z - Location.Z) - (0.5 * fGravityEffect * (timeToTarget * timeToTarget))) / timeToTarget;
+    Velocity = (TargetActor.Location - Location) / timeToTarget;
+    Velocity.Z = ((TargetActor.Location.Z - Location.Z) - (0.5 * fGravityEffect * (timeToTarget * timeToTarget))) / timeToTarget;
     SetTimer(GrenadeBounceInterval,False);
   }
   
@@ -261,9 +261,9 @@ state StateFlying
     {
       fxFlyParticleEffect.SetLocation(Location);
     }
-    if ( fxHeadParticleEffect != None )
+    if (  MiscParticles != None )
     {
-      fxHeadParticleEffect.SetLocation(Location);
+       MiscParticles.SetLocation(Location);
     }
   }
 }
@@ -280,7 +280,7 @@ begin:
 
 defaultproperties
 {
-    fxHeadParticleEffectClass=Class'HPParticle.Crabfireball'
+     MiscParticleFX=Class'HPParticle.Crabfireball'
 
     fxFlyParticleEffectClass=Class'HPParticle.Crabfire'
 

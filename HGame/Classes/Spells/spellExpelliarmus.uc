@@ -1,16 +1,29 @@
 //================================================================================
-// spellLumos.
+// spellExpelliarmus.
 //================================================================================
 
-class spellLumos extends baseSpell;
+class spellExpelliarmus extends baseSpell;
+/* 
+function Color Col (float R, float G, float B)
+{
+	local Color C;
+	
+	//UTPT didn't add this... -AdamJD
+	C.R = R;
+	C.G = G;
+	C.B = B;
+	
+	//or this... -AdamJD
+	return C;
+} */
 
 defaultproperties
 {
     SpellIcon=None
 
-    SeekSpeed=5.00
+    SpellLifeTime=1.00
 
-    FlyingParticleFX=Class'HPParticle.Lumos_fly'
+    SeekSpeed=0.00
 
     HitParticleFX=Class'HPParticle.Lumos_hit'
 
@@ -18,9 +31,9 @@ defaultproperties
 
     QuietSpellIncantation="spells4"
 
-    Speed=400.00
+    Speed=0.00
 
 	DrawType=DT_None
 
-	SpellName=Lumos
+	SpellName=Expelliarmus
 }

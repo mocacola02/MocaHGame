@@ -115,7 +115,7 @@ function bool HarrySpellGoesInMyDirection()
 	{
 		return False;
 	}
-	if ( CurrentSpellClass == Class'spellDuelExpelliarmus' )
+	if ( CurrentSpellClass == Class'spellExpelliarmus' )
 	{
 		return False;
 	}
@@ -155,20 +155,20 @@ function StartCharging()
 	}
 	if ( PlayerHarry.fTimeAfterHit > 0 )
 	{
-		CurrentSpellClass = Class'spellDuelRictusempra';
+		CurrentSpellClass = Class'spellRictusempra';
 	} 
 	else 
 	{
 		switch (Rand(2))
 		{
 			case 0:
-				CurrentSpellClass = Class'spellDuelRictusempra';
+				CurrentSpellClass = Class'spellRictusempra';
 				break;
 			case 1:
-				CurrentSpellClass = Class'spellDuelMimblewimble';
+				CurrentSpellClass = Class'spellMimblewimble';
 				break;
 			default:
-				CurrentSpellClass = Class'spellDuelRictusempra';
+				CurrentSpellClass = Class'spellRictusempra';
 				break;
 		}
 	}
@@ -178,7 +178,7 @@ function StartCharging()
 
 function StartChargingDefence()
 {
-	CurrentSpellClass = Class'spellDuelExpelliarmus';
+	CurrentSpellClass = Class'spellExpelliarmus';
 	baseWand(Weapon).StartChargingSpell(True,False,CurrentSpellClass);
 	DuellistAnimChannel.DoCharging();
 }
@@ -203,7 +203,7 @@ function Cast()
 function Defence()
 {
 	PlaySound(Sound'Dueling_EXP_swoosh');
-	baseWand(Weapon).CastSpell(PlayerHarry,,Class'spellDuelExpelliarmus');
+	baseWand(Weapon).CastSpell(PlayerHarry,,Class'spellExpelliarmus');
 	TurnOffSpellCursor();
 }
 
@@ -599,7 +599,7 @@ function HarryWonDuel()
 	DuellistAnimChannel.GotoState('stateIdle');
 }
 
-function bool HandleSpellDuelRictusempra (optional baseSpell spell, optional Vector vHitLocation)
+function bool HandlespellRictusempra (optional baseSpell spell, optional Vector vHitLocation)
 {
 	local float SpellCharge;
 	local float SpellSpeed;
@@ -630,7 +630,7 @@ function bool HandleSpellDuelRictusempra (optional baseSpell spell, optional Vec
 	return True;
 }
 
-function bool HandleSpellDuelMimblewimble (optional baseSpell spell, optional Vector vHitLocation)
+function bool HandlespellMimblewimble (optional baseSpell spell, optional Vector vHitLocation)
 {
 	if ( bReboundingSpells )
 	{
@@ -918,7 +918,7 @@ state statePatrol
 				//log("Taunt");
 				GotoState('stateTaunt');
 			} 
-			else if( LineOfSightTo(playerHarry) && (CurrentSpellClass != class'spellDuelExpelliarmus') && ( baseWand(weapon).ChargingLevel() > 0.25 * (2 - Intellect) ) && (fTimeAfterHit <= 0) )
+			else if( LineOfSightTo(playerHarry) && (CurrentSpellClass != class'spellExpelliarmus') && ( baseWand(weapon).ChargingLevel() > 0.25 * (2 - Intellect) ) && (fTimeAfterHit <= 0) )
 			{
 				//log("Shot");
 				GotoState('stateShot');
@@ -1013,7 +1013,7 @@ function Tick (float deltaT)
 			GotoState('stateStay');
 		}
 	}
-	if ( (CurrentSpellClass == Class'spellDuelExpelliarmus') && (baseWand(Weapon).ChargingLevel() >= 1) )
+	if ( (CurrentSpellClass == Class'spellExpelliarmus') && (baseWand(Weapon).ChargingLevel() >= 1) )
 	{
 		TurnOffSpellCursor();
 		StartCharging();
@@ -1026,7 +1026,7 @@ function Tick (float deltaT)
 	{
 		StartChargingDefence();
 	}
-	if ( (CurrentSpellClass == Class'spellDuelExpelliarmus') && (baseWand(Weapon).ChargingLevel() > 0.2 * (1 - Intellect)) && HarrySpellAboutToHitMe() )
+	if ( (CurrentSpellClass == Class'spellExpelliarmus') && (baseWand(Weapon).ChargingLevel() > 0.2 * (1 - Intellect)) && HarrySpellAboutToHitMe() )
 	{
 		GotoState('stateDefence');
 	}

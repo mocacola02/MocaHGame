@@ -308,6 +308,7 @@ var Actor CarryingActor;
 var CauldronMixing ActiveCauldron;
 var(Boss) baseBoss BossTarget;
 var HPawn HearHarryRecipient;
+var SpellCursor Cursor;
 
 //-------------------------------------
 // Misc. Travel
@@ -431,6 +432,8 @@ function InitDependencies()
 
 	HarryAnimChannel = cHarryAnimChannel( CreateAnimChannel(class'cHarryAnimChannel', AT_Replace, 'bip01 spine1') );
 	HarryAnimChannel.SetOwner( self );
+
+	Cursor = Spawn(Class'SpellCursor');
 }
 
 //-------------------------------------
@@ -1860,7 +1863,7 @@ function StartBossEncounter (baseBoss Boss, bool in_bHarryShouldLockOntoBoss, bo
 
 	if ( ForceSpellType != None && Weapon.IsA('baseWand') )
 	{
-		baseWand(Weapon).ChooseSpell(ForceSpellType,True);
+		baseWand(Weapon).SetCurrentSpell(ForceSpellType,True);
 		baseWand(Weapon).bAutoSelectSpell = False;
 	}
 
@@ -1906,7 +1909,7 @@ function StopBossEncounter()
 
 	if( Weapon.IsA('baseWand'))
 	{
-		baseWand(Weapon).ChooseSpell(SPELL_None);
+		baseWand(Weapon).SetCurrentSpell(SPELL_None);
 		baseWand(Weapon).bAutoSelectSpell = True;
 	}
 	
@@ -3923,7 +3926,7 @@ state PlayerWalking
 				
 			if( bInDuelingMode )
 			{
-				if(DuelSpells[CurrentDuelSpell] == class'spellDuelExpelliarmus')
+				if(DuelSpells[CurrentDuelSpell] == class'spellExpelliarmus')
 				{
 				 	PlaySound( Sound'HPSounds.Magic_sfx.Dueling_EXP_swoosh' );
 					HarryAnimChannel.GotoState( 'stateDefenceCast' );
@@ -5433,7 +5436,7 @@ function CheckIfHarryLostDuel()
  }
 }
 
-function bool HandleSpellDuelRictusempra (optional baseSpell spell, optional Vector vHitLocation)
+function bool HandlespellRictusempra (optional baseSpell spell, optional Vector vHitLocation)
 {
   local float fTimeAfterHitNew;
   local string SpellIncantation;
@@ -5482,7 +5485,7 @@ function bool HandleSpellDuelRictusempra (optional baseSpell spell, optional Vec
   return True;
 }
 
-function bool HandleSpellDuelMimblewimble (optional baseSpell spell, optional Vector vHitLocation)
+function bool HandlespellMimblewimble (optional baseSpell spell, optional Vector vHitLocation)
 {
   local string SpellIncantation;
   local int iDamage;
@@ -5703,11 +5706,11 @@ defaultproperties
 
     HarryMultipleForGryffindor=3
 
-    DuelSpells(0)=Class'spellDuelRictusempra'
+    DuelSpells(0)=Class'spellRictusempra'
 
-    DuelSpells(1)=Class'spellDuelMimblewimble'
+    DuelSpells(1)=Class'spellMimblewimble'
 
-    DuelSpells(2)=Class'spellDuelExpelliarmus'
+    DuelSpells(2)=Class'spellExpelliarmus'
 
     DuelSpellSwitchSounds(0)=Sound'HPSounds.Magic_sfx.Dueling_switch2RIC'
 

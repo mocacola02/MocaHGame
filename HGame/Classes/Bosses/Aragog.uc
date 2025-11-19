@@ -994,7 +994,7 @@ state stateShootSpell
 		  spellOrigin = spellOrigin + Vec(0.0,0.0,160.0);
 		  attackSpell = AragogSpellAttack(FancySpawn(Class'AragogSpellAttack',self,,spellOrigin,rotator(vDir)));
 		  attackSpell.iDamage = SpellDamage;
-		  attackSpell.hitTarget = spellLocation;
+		  attackSpell.TargetActor.Location = spellLocation;
 		  // Counter++;
 		  // goto JL015C;
 		}
@@ -1050,7 +1050,7 @@ state stateShootSpell
 			spellOrigin = spellOrigin + Vec(0.0,0.0,160.0);
 			attackSpell = Spawn(Class'AragogSpellAttack',self,,spellOrigin,rotator(vDir));
 			attackSpell.iDamage = SpellDamage;
-			attackSpell.hitTarget = spellLocation;
+			attackSpell.TargetActor.Location = spellLocation;
 			if ( TempCount2 > 1 )
 			{
 			  Sleep(0.15);

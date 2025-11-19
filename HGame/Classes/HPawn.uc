@@ -123,6 +123,21 @@ function PostBeginPlay()
   }
 }
 
+function bool HandleSpell(class<baseSpell> HitSpell)
+{
+	if (HitSpell == SpellVulnerableTo)
+	{
+		ProcessSpell();
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+function ProcessSpell(class<baseSpell> HitSpell); // Define in child classes
+
 // Moca: I'm adding this since 1) I'm used to print() in Godot lmfao and 2) I can have it clearly mark the "speaker" of the message
 function Print(string msg, optional bool BothLogs)
 {
@@ -1185,12 +1200,12 @@ function bool HandleSpellSpongify (optional baseSpell spell, optional Vector vHi
   return False;
 }
 
-function bool HandleSpellDuelRictusempra (optional baseSpell spell, optional Vector vHitLocation)
+function bool HandlespellRictusempra (optional baseSpell spell, optional Vector vHitLocation)
 {
   return False;
 }
 
-function bool HandleSpellDuelMimblewimble (optional baseSpell spell, optional Vector vHitLocation)
+function bool HandlespellMimblewimble (optional baseSpell spell, optional Vector vHitLocation)
 {
   return False;
 }

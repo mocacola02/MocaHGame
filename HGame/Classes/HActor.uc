@@ -14,6 +14,21 @@ event PostBeginPlay()
 	ResolveEVulnerableToSpell();
 }
 
+function bool HandleSpell(class<baseSpell> HitSpell)
+{
+	if (HitSpell == SpellVulnerableTo)
+	{
+		ProcessSpell();
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+function ProcessSpell(class<baseSpell> HitSpell); // Define in child classes
+
 // Moca: I'm adding this since 1) I'm used to print() in Godot lmfao and 2) I can have it clearly mark the "speaker" of the message
 function Print(string msg, optional bool BothLogs)
 {
@@ -47,9 +62,9 @@ function ResolveEVulnerableToSpell()
 			case SPELL_Skurge: SpellVulnerableTo = class'spellSkurge'; break;
 			case SPELL_Spongify: SpellVulnerableTo = class'spellSpongify'; break;
 			case SPELL_Rictusempra: SpellVulnerableTo = class'spellRictusempra'; break;
-			case SPELL_DuelRictusempra: SpellVulnerableTo = class'spellDuelRictusempra'; break;
-			case SPELL_DuelMimblewimble: SpellVulnerableTo = class'spellDuelMimblewimble'; break;
-			case SPELL_DuelExpelliarmus: SpellVulnerableTo = class'spellDuelExpelliarmus'; break;
+			case SPELL_DuelRictusempra: SpellVulnerableTo = class'spellRictusempra'; break;
+			case SPELL_DuelMimblewimble: SpellVulnerableTo = class'spellMimblewimble'; break;
+			case SPELL_DuelExpelliarmus: SpellVulnerableTo = class'spellExpelliarmus'; break;
 			default:
 				CMAndLog(string(self) $ " says: Couldn't match eVulnerableToSpell to SpellVulnerableTo, defaulting to Flipendo",true);
 				SpellVulnerableTo = class'spellFlipendo';
@@ -58,11 +73,7 @@ function ResolveEVulnerableToSpell()
 	}
 }
 
-function ChangePlayer(harry NewPlayer)
+function bool IsOtherLookingAt(Actor Other, float minDot)
 {
-	if (PlayerHarry != harry(Level.PlayerHarryActor))
-	{
-		PlayerHarry = harry(Level.PlayerHarryActor);
-		CMAndLog(string(self) $ " says: The new player is " $ string(PlayerHarry) $ "!")
-	}
+    return ( IsOtherFacing(Other, minDot) && PlayerCanSeeMe() );
 }

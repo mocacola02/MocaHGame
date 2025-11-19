@@ -7,6 +7,8 @@ class HWeapon extends Weapon;
 var harry PlayerHarry;
 var cHarryAnimChannel HarryAnimChannel;
 var BaseCam HarryCam;
+var SpellCursor Cursor;
+var Actor CurrentTarget;
 
 function SecondaryFireAction();
 function PrimaryFireAction();
@@ -62,4 +64,9 @@ function Fire(float Value)
 function AltFire(float Value)
 {
 	PrimaryFireAction();
+}
+
+function Vector GetTraceOffset()
+{
+	return Vector(0,0,0);
 }
