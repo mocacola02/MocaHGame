@@ -153,13 +153,13 @@ state stateSeeking
 				continue;
 			}
 
-			PlayerWeapon.CurrentTarget = HitActor;
+			PlayerWeapon.UpdateTarget(HitActor);
 			bHitSomething = True;
 		}
 
 		if (!bHitSomething)
 		{
-			PlayerWeapon.CurrentTarget = None;
+			PlayerWeapon.UpdateTarget(None);
 		}
 	}
 }

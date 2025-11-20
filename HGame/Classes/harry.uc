@@ -234,6 +234,7 @@ var travel bool bHaveQArmor;
 var travel int nLastCardTypeSave;
 
 var(Weapon) Weapon DefaultWeapon;
+var Weapon PreviousWeapon;
 
 //-------------------------------------
 // Dueling
@@ -379,6 +380,60 @@ event PostBeginPlay()
 	{
 		baseWand(Weapon).LumosTurnOn();
 	}
+}
+
+// Moca: I'm adding this since 1) I'm used to print() in Godot lmfao and 2) I can have it clearly mark the "speaker" of the message
+function Print(string msg, optional bool BothLogs)
+{
+	if (msg == "")
+	{
+		return;
+	}
+
+	if (BothLogs)
+	{
+		CMAndLog(string(self) $ " says: " $ msg);
+	}
+	else
+	{
+		Log(string(self) $ " says: " $ msg);
+	}
+}
+
+function SwitchWeapon(byte F)
+{
+	PreviousWeapon = Weapon;
+	super.SwitchWeapon(F);
+	ChangedWeapon();
+	Weapon.GiveAmmo(self);	
+}
+
+function ChangeWeapon(class<Weapon> WeaponToUse, optional bool bForceSpawn)
+{
+	if (FindInventoryType(WeaponToUse) == None)
+	{
+		if (bForceSpawn)
+		{
+			SpawnWeapon(WeaponToUse);
+		}
+		else
+		{
+			print("I don't have the weapon " $ string(WeaponToUse), true);
+			return;
+		}
+	}
+
+	local byte WeaponSlot;
+	WeaponSlot = WeaponToUse.Default.InventoryGroup;
+
+	SwitchWeapon();
+}
+
+function SpawnWeapon(class<Weapon> WeaponToSpawn)
+{
+	local Weapon WeaponActor;
+	WeaponActor = Spawn(WeaponToSpawn, self);
+	WeaponActor.BecomeItem();
 }
 
 function GetDirector()
@@ -1010,246 +1065,23 @@ function CopyCardCardStatusFromHarryToManager()
 // Carrying & Throwing
 //-------------------------------------
 
-function SetCarryingActor (optional name nameBone)
+function AttachCarryActor()
 {
-	// If no nameBone was provided, default to weapon bone
-	if ( nameBone == 'None' )
-	{
-		nameBone = 'WeaponRight';
-	}
-
-	// If we have a carried actor:
-	if ( CarryingActor != None )
-	{
-		// Hide our weapon if attached to weapon bone
-		if ( nameBone == 'WeaponRight' )
-		{
-			Weapon.bHidden = True;
-		}
-
-		// Prep animation combine
-		HarryAnimType = AT_Combine;
-		// Prep carried actor
-		CarryingActor.SetCollision(False,False,False);
-		CarryingActor.SetOwner(self);
-		CarryingActor.AttachToOwner(nameBone);
-		CarryingActor.bRotateToDesired = False;
-	}
-	// Otherwise, don't carry
-	else
-	{
-		ClientMessage("******* Dont allow this case   SetCarryingActor *******");
-		Weapon.bHidden = False;
-	}
-
-	bThrow = False;
-}
-
-function AttachCarryActor (optional name nameBone)
-{
-	// If we have a carried actor
-	if ( CarryingActor != None )
-	{
-		// Go to carry it
-		SetCarryingActor(nameBone);
-	} 
-	else
-	{
-		// Drop our carry
-		DropCarryingActor();
-	}
-}
-
-function PickupActor (Actor Other)
-{
-	// This might not be optimal, but I'll see where it goes
-
-	// If pickup is an HPawn
-	if (Other.IsA('HPawn'))
-	{
-		local HPawn ActorToPickup;
-		ActorToPickup = HPawn(Other);
-	}
-	// If pickup is an HProp (since those aren't pawns now)
-	else if (Other.IsA('HProp'))
-	{
-		local HProp ActorToPickup;
-		ActorToPickup = HProp(Other);
-	}
-	// If we're not either, abort!
-	else
-	{
-		Log("Not a compatible pickup actor!");
-		return;
-	}
-
-	// If we're eligible to carry, "do it". - Emperor Palpatine, 19 BBY
-	if ( Physics == PHYS_Walking && IsInState('PlayerWalking') && CarryingActor == None && ActorToPickup.bObjectCanBePickedUp)
-	{
-		ClientMessage("Do Pickup");
-		CarryingActor = ActorToPickup;
-		GotoState('statePickupItem');
-	}
-}
-
-function DropCarryingActor (optional bool bLatentDrop)
-{
-	ClientMessage("** DropCarryingActor");
-
-	// If we're carrying an actor
-	if ( CarryingActor != None )
-	{
-		// Set the carried actor to be dropped
-		CarryingActor.SetPhysics(PHYS_Falling);
-		CarryingActor.SetOwner(None);
-		CarryingActor.Velocity = vect(0.00,0.00,125.00);
-		CarryingActor.Instigator = self;
-		CarryingActor.bRotateToDesired = True;
-		CarryingActor.SetCollision(True,True,True);
-		CarryingActor = None;
-	}
-
-	// If we were in pickup, go back to walk
-	if ( IsInState('statePickupItem') )
-	{
-		GotoState('PlayerWalking');
-	}
-
-	// Tbh i'm not entirely sure what latent drop is, so i'm leaving it as is. I think it determines if harry can move during the drop? dunno
-	if ( !bLatentDrop )
-	{
-		HarryAnimChannel.GotoState('stateIdle');
-		HarryAnimType = AT_Replace;
-	}
-	
-	// Unhide our wand
-	Weapon.bHidden = False;
-}
-
-function ThrowCarryingActor()
-{
-	local Vector V;
-	local Actor Target;
-	local float ThrowVelocity;
-
-	if ( bThrow && (CarryingActor != None) )
-	{
-		// Again this feels a bit risky, but we'll see
-		if (CarryingActor.IsA('HProp'))
-		{
-			local HProp A;
-		}
-		else if (CarryingActor.IsA('HPawn'))
-		{
-			local HPawn A;
-		}
-		else
-		{
-			Log("CarryingActor is not valid!");
-			return;
-		}
-
-		// Reset throw var
-		bThrow = False;
-
-		// Set our actor and drop
-		A = CarryingActor;
-		DropCarryingActor(True);
-
-		// If we're throwing accurately
-		if (A.bAccurateThrowing)
-		{
-			// Find our target
-			aTarget = GetAccurateThrowTarget(A);
-		}
-
-		// If we have a target and are throwing accurately
-		if ( aTarget != None && A.bAccurateThrowing)
-		{
-			// "Do it" -Emperor Palpatine, 19 BBY
-			HarryAccurateThrowObject(A,aTarget,True,True);
-		}
-		// Otherwise, just throw normally
-		else
-		{
-			// Set forward velocity
-			V = Normal(Cam.vForward + vect(0.00,0.00,0.50));
-
-			if ( A != None )
-			{
-				ThrowVelocity = A.ThrowVelocity;
-				A.GotoState('stateBeingThrown');
-			}
-			else
-			{
-				ThrowVelocity = 400.0;
-			}
-
-			// Multiply our velocity by the intended throw velocity
-			V *= ThrowVelocity;
-
-			// Set actor's velocity
-			A.Velocity = V;
-		}
-	}
-}
-
-function Actor GetAccurateThrowTarget (Actor A)
-{
-	local TargetPoint ClosestTP;
-	local TargetPoint CurrTP;
-	local float Dist;
-
-	// Went with 65536 since no level goes larger than that. did i need to change it? nah
-	ClosestDist = 65536.0;
-	
-	// For each TargetPoint
-	foreach AllActors(Class'TargetPoint',CurrTP)
-	{
-		// If the target is in front of Harry
-		if ( InFrontOfHarry(CurrTP) )
-		{
-			// Get the distance between Harry and the target
-			Dist = VSize(CurrTP.Location - Location);
-
-			// If its not too far away
-			if ( Dist < ClosestDist )
-			{
-				// Set the closest TP to the current TP
-				ClosestTP = CurrTP;
-
-				// Set the closest dist to current dist
-				ClosestDist = Dist;
-			}
-		}
-	}
-
-	return ClosestTP;
-}
-
-function HarryAccurateThrowObject (HPawn A, Actor Target, bool bCollideActors, bool bCollideWorld)
-{
-	local Vector Vel;
-
-	// Set thrown actor properties
-	A.SetPhysics(PHYS_Falling);
-	A.SetCollision(bCollideActors);
-	A.bCollideWorld = bCollideWorld;
-
-	// Calculate velocity
-	Vel = ComputeTrajectoryByTime(A.Location,Target.Location,0.5);
-
-	// Set thrown actor velocity
-	A.Velocity = Vel;
-
-	// Set thrown actor state
-	A.GotoState('stateBeingThrown');
+	CarryActor(Weapon).CarryingActor = CarryingActor;
+	CarryActor(Weapon).InitWeapon();
 }
 
 state statePickupItem
 {
 	function BeginState()
 	{
+		ChangeWeapon(class'CarryActor',true);
+		if (!Weapon.IsA('CarryActor'))
+		{
+			Print("Could not switch to CarryActor!!",true);
+			GotoState('PlayerWalking');
+		}
+
 		CurrIdleAnimName = GetCurrIdleAnimName();
 		PlayAnim(CurrIdleAnimName,,[TweenTime]0.4,[Type]HarryAnimType);
 	}
@@ -2825,175 +2657,13 @@ function TweenToWaiting (float TweenTime)
 	}
 }
 
-// TODO: Move to basewand
 function Cast()
 {
-  local Actor BestTarget;
-  //local Actor HitActor;
-  local Rotator defaultAngle;
-  local Rotator checkAngle;
-  local Pawn hitPawn;
-  local Vector objectDir;
-  local int bestYaw;
-  local int tempYaw;
-  local int defaultYaw;
-  local float bestDist;
-  local float TempDist;
-  local string SpellIncantation;
-
-  //log("Cast!");
-  
-  if ( fTimeAfterHit > 0 )
-  {
-    if ( (fTimeAfterHit > 1.0) && bInDuelingMode )
-    {
-      if ( CurrentDuelSpell == 0 )
-      {
-        switch (Rand(6))
-        {
-          case 0:
-          SpellIncantation = "PC_Hry_HryDuelMW_04";
-          break;
-          case 1:
-          SpellIncantation = "PC_Hry_HryDuelMW_05";
-          break;
-          case 2:
-          SpellIncantation = "PC_Hry_HryDuelMW_12";
-          break;
-          case 3:
-          SpellIncantation = "PC_Hry_HryDuelMW_13";
-          break;
-          case 4:
-          SpellIncantation = "PC_Hry_HryDuelMW_14";
-          break;
-          case 5:
-          SpellIncantation = "PC_Hry_HryDuelMW_15";
-          break;
-          default:
-        }
-      } else //{
-        if ( CurrentDuelSpell == 1 )
-        {
-          switch (Rand(6))
-          {
-            case 0:
-            SpellIncantation = "PC_Hry_HryDuelMW_06";
-            break;
-            case 1:
-            SpellIncantation = "PC_Hry_HryDuelMW_07";
-            break;
-            case 2:
-            SpellIncantation = "PC_Hry_HryDuelMW_08";
-            break;
-            case 3:
-            SpellIncantation = "PC_Hry_HryDuelMW_09";
-            break;
-            case 4:
-            SpellIncantation = "PC_Hry_HryDuelMW_10";
-            break;
-            case 5:
-            SpellIncantation = "PC_Hry_HryDuelMW_11";
-            break;
-            default:
-          }
-        } 
-		  else //{
-          if ( CurrentDuelSpell == 2 )
-          {
-            switch (Rand(3))
-            {
-              case 0:
-              SpellIncantation = "PC_Hry_HryDuelMW_01";
-              break;
-              case 1:
-              SpellIncantation = "PC_Hry_HryDuelMW_02";
-              break;
-              case 2:
-              SpellIncantation = "PC_Hry_HryDuelMW_03";
-              break;
-              default:
-            }
-          }
-        //}
-      //}
-      if ( SpellIncantation != "" )
-      {
-        PlaySound(Sound(DynamicLoadObject("AllDialog." $ SpellIncantation,Class'Sound')),SLOT_Talk,0.75,True);
-      }
-    }
-    return;
-  }
-  defaultAngle = Rotation;
-  defaultAngle.Pitch = 0;
-  defaultYaw = defaultAngle.Yaw;
-  defaultYaw = defaultYaw & 65535;
-  if ( defaultYaw > 32767 )
-  {
-    defaultYaw = defaultYaw - 65536;
-  }
-  BestTarget = None;
-  if ( BossTarget != None )
-  {
-    Target = BossTarget;
-  }
-  if (  !baseWand(Weapon).bAutoSelectSpell )
-  {
-    baseWand(Weapon).CastSpell(BossTarget,vect(0.00,0.00,0.00));
-    baseWand(Weapon).LastCastedSpell.SeekSpeed *= 0.25;
-  } else //{
-    if ( bInDuelingMode )
-    {
-      baseWand(Weapon).CastSpell(DuelOpponent,,DuelSpells[CurrentDuelSpell]);
-      baseWand(Weapon).LastCastedSpell.SetSpellDirection(SpellCursor.Location - baseWand(Weapon).LastCastedSpell.Location);
-    } else //{
-      if ( bHarryUsingSword )
-      {
-        baseWand(Weapon).CastSpell(None,,Class'spellSwordFire');
-      } else //{
-        if ( SpellCursor.IsLockedOn() )
-        {
-          baseWand(Weapon).CastSpell(SpellCursor.aCurrentTarget,SpellCursor.vTargetOffset);
-        } else {
-          ClientMessage("Harry Can't cast a spell... SpellCursor.IsLockedOn = " $ string(SpellCursor.IsLockedOn()) $ " CurrentSpell = " $ string(baseWand(Weapon).CurrentSpell));
-        //}
-      //}
-    //}
+	if (Weapon.IsA('baseWand'))
+	{
+		baseWand(Weapon).FireSpell();
 	}
-  TurnOffSpellCursor();
 }
-
-/* function Fire (optional float f)
-{
-  if ( Weapon != None && bJustFired == False )
-  {
-    Weapon.bPointing = True;
-  }
-  bJustFired = True;
-}
-
-exec function AltFire (optional float f)
-{
-  local Vector V;
-  local Rotator R;
-
-  if ( HarryAnimChannel.IsCarryingActor() )
-  {
-    if ( bThrow == False && IsInState('PlayerWalking') )
-    {
-      ClientMessage("Throw!");
-      HarryAnimChannel.GotoStateThrow();
-      bThrow = True;
-    }
-  } 
-  else 
-  {
-    if ( (Weapon != None) && (CarryingActor == None) &&  !bIsAiming )
-    {
-      Weapon.bPointing = True;
-      StartAiming(bHarryUsingSword);
-    }
-  }
-} */
 
 exec function AltFire (optional float f)
 {
@@ -3007,7 +2677,7 @@ exec function AltFire (optional float f)
 	}
 	else
 	{
-		if ( Weapon.IsA('HWeapon') && !HarryAnimChannel.IsInState('stateCasting') )
+		if ( Weapon.IsA('HWeapon') )
 		{
 			HWeapon(Weapon).PrimaryFireAction();
 		}
@@ -3252,25 +2922,6 @@ function StopAiming()
   }
 }
 */
-
-function StopAiming()
-{
-	//ClientMessage("StopAiming()");
-
-	//Dont even bother trying to do this if you're carrying something.  You wont be aiming FOR SURE.
-	if( CarryingActor == none )
-	{
-		HarryAnimChannel.GotoState( 'stateIdle' );
-		HarryAnimType = AT_Replace;
-		TurnOffCastingVars();
-		TurnOffSpellCursor();
-		
-		if ( bHarryUsingSword )
-		{
-		  StopSound(Sound'sword_buildup',SLOT_Interact);
-		}
-	}
-}
 
 function TurnOffCastingVars()
 {

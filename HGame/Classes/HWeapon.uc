@@ -10,8 +10,11 @@ var BaseCam HarryCam;
 var SpellCursor Cursor;
 var Actor CurrentTarget;
 
+var bool bUseFire;
+
 function SecondaryFireAction();
 function PrimaryFireAction();
+function InitWeapon();
 
 event PostBeginPlay()
 {
@@ -58,7 +61,10 @@ function ChangePlayer(harry NewPlayer)
 
 function Fire(float Value)
 {
-	SecondaryFireAction();
+	if (bUseFire)
+	{
+		SecondaryFireAction();
+	}
 }
 
 function AltFire(float Value)
@@ -69,4 +75,9 @@ function AltFire(float Value)
 function Vector GetTraceOffset()
 {
 	return Vector(0,0,0);
+}
+
+function UpdateTarget(Actor NewTarget)
+{
+	CurrentTarget = NewTarget;
 }

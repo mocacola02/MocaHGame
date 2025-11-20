@@ -18,9 +18,17 @@ var ParticleFX ReactParticles;
 var ParticleFX ChargeParticles;
 var ParticleFX MiscParticles;
 
-var float SeekSpeed;
+
+// Charge variables. Only the default values are used in baseWand
+var float ChargeSpeed; 			// Moca: How much charge to gain over a second Def: 1.0
+var float MinCharge;
+var float MaxCharge;			// Moca: Maximum charge Def: 2.5
+var Sound ChargeSound;
+
+var float FinalCharge;	// Moca: Charge after spawned from baseWand
 
 var Vector CurrentDirection;
+var float SeekSpeed;
 
 var name SpellName;
 
@@ -192,6 +200,9 @@ defaultproperties
     CollisionHeight=2.0
 
 	Damage=5.0
+
+	ChargeSpeed=1.0
+	MaxCharge=2.5
 
 	Speed=500.0
     SeekSpeed=7.0

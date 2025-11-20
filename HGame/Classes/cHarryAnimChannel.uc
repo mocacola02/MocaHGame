@@ -12,9 +12,14 @@ function GotoStateThrow()
 	GotoState('stateThrow');
 }
 
-function bool GotoStateCasting ()
+function GotoStateCasting ()
 {
 	GotoState('stateCasting');
+}
+
+function GotoStateCast()
+{
+	GotoState('stateCast');
 }
 
 function bool IsCasting()
@@ -26,16 +31,6 @@ function bool IsCarryingActor()
 {
 	return IsInState('statePickupItem') || IsInState('stateThrow');
 }
-
-/* function bool CanPickSomethingUp()
-{
-  return True;
-}
- */
-/* function bool PlayHarryMovementAnims()
-{
-  return True;
-} */
 
 function Cast()
 {
@@ -52,22 +47,23 @@ auto state stateIdle
 
 state statePickupItem
 {
-  function bool CanPickSomethingUp()
-  {
-    return False;
-  }
-  
-  function BeginState()
-  {
-    PlayAnim('Pickup',1.0,0.15);
-  }
-  
- begin:
-  harry(Owner).ClientMessage("hold up arm");
-  Sleep(0.2);
-  harry(Owner).AttachCarryActor();
-  FinishAnim();
-  LoopAnim('throwhold',1.0,0.1);
+	function bool CanPickSomethingUp()
+	{
+		return False;
+	}
+	
+	function BeginState()
+	{
+		PlayAnim('Pickup',1.0,0.15);
+	}
+	
+	begin:
+		harry(Owner).ClientMessage("hold up arm");
+		Sleep(0.2);
+		harry(Owner).CarryActor(Weapon).CarryingActor = CarryingActor;
+		CarryActor(Weapon).InitWeapon();
+		FinishAnim();
+		LoopAnim('throwhold',1.0,0.1);
 }
 
 state stateThrow
@@ -106,29 +102,31 @@ state stateCasting
 
 state stateCancelCasting
 {
-begin:
-  harry(Owner).ClientMessage("HarryAnimChannel: CancelCasting");
-  harry(Owner).CurrIdleAnimName = harry(Owner).GetCurrIdleAnimName();
-  PlayAnim(harry(Owner).CurrIdleAnimName,,0.25);
-  FinishAnim();
-  harry(Owner).StopAiming();
+	begin:
+		harry(Owner).ClientMessage("HarryAnimChannel: CancelCasting");
+		harry(Owner).CurrIdleAnimName = harry(Owner).GetCurrIdleAnimName();
+		PlayAnim(harry(Owner).CurrIdleAnimName,,0.25);
+		FinishAnim();
+		harry(Owner).HarryAnimType = AT_Replace;
+		GotoState( 'stateIdle' );
 }
 
 state stateDuelingCast
 {
-begin:
-  harry(Owner).Cast();
-  harry(Owner).HarryAnimType =  AT_Combine;
-  PlayAnim('duel_cast',,[TweenTime]0.3);
-  FinishAnim();
-  if ( harry(Owner).bAltFire == 0 )
-  {
-    harry(Owner).StopAiming();
-  } else {
-    harry(Owner).TurnOffCastingVars();
-    harry(Owner).TurnOffSpellCursor();
-    harry(Owner).StartAiming(False);
-  }
+	begin:
+		harry(Owner).Cast();
+		harry(Owner).HarryAnimType =  AT_Combine;
+		PlayAnim('duel_cast',,[TweenTime]0.3);
+		FinishAnim();
+		if ( harry(Owner).bAltFire == 0 )
+		{
+			harry(Owner).HarryAnimType = AT_Replace;
+			GotoState( 'stateIdle' );
+		} else {
+			harry(Owner).TurnOffCastingVars();
+			harry(Owner).TurnOffSpellCursor();
+			harry(Owner).StartAiming(False);
+		}
 }
 
 state stateDefenceCast
@@ -147,7 +145,8 @@ begin:
   harry(Owner).bReboundingSpells = False;
   if ( harry(Owner).bAltFire == 0 )
   {
-    harry(Owner).StopAiming();
+    harry(Owner).HarryAnimType = AT_Replace;
+	GotoState( 'stateIdle' );
   } else {
     harry(Owner).TurnOffCastingVars();
     harry(Owner).TurnOffSpellCursor();
@@ -157,19 +156,22 @@ begin:
 
 state stateCast
 {
-  function BeginState()
-  {
-    if ( harry(Owner).bHarryUsingSword )
-    {
-      PlayAnim('SwordCast',1.5,0.1);
-    } else {
-      PlayAnim('Cast',2.0,0.1);
-    }
-  }
-  
- begin:
-  FinishAnim();
-  harry(Owner).StopAiming();
+	function BeginState()
+	{
+		if ( harry(Owner).bHarryUsingSword )
+		{
+			PlayAnim('SwordCast',1.5,0.1);
+		}
+		else
+		{
+			PlayAnim('Cast',2.0,0.1);
+		}
+	}
+	
+	begin:
+		FinishAnim();
+		harry(Owner).HarryAnimType = AT_Replace;
+		GotoState( 'stateIdle' );
 }
 
 function DoKnockBack()
@@ -196,7 +198,8 @@ state stateKnockBack
   if ( harry(Owner).bHarryUsingSword && (baseWand(harry(Owner).Weapon).ChargingLevel() > 0) )
   {
     baseWand(harry(Owner).Weapon).CastSpell(harry(Owner).Weapon,,Class'spellSwordFire');
-    harry(Owner).StopAiming();
+    harry(Owner).HarryAnimType = AT_Replace;
+	GotoState( 'stateIdle' );
   }
   PlayAnim('KnockBack',,0.3);
   FinishAnim();
@@ -401,7 +404,8 @@ state stateReactRictusempra
   harry(Owner).HarryAnimType =  AT_Replace;
   if ( harry(Owner).PlayerIsAiming() )
   {
-    harry(Owner).StopAiming();
+    harry(Owner).HarryAnimType = AT_Replace;
+	GotoState( 'stateIdle' );
   }
   GotoState('stateIdle');
 }
@@ -427,7 +431,8 @@ state stateReactMimbleWimble
   harry(Owner).HarryAnimType =  AT_Replace;
   if ( harry(Owner).PlayerIsAiming() )
   {
-    harry(Owner).StopAiming();
+    harry(Owner).HarryAnimType = AT_Replace;
+	GotoState( 'stateIdle' );
   }
   GotoState('stateIdle');
 }
