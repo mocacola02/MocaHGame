@@ -10,11 +10,14 @@ var BaseCam HarryCam;
 var SpellCursor Cursor;
 var Actor CurrentTarget;
 
+var bool bAllowPickup;
 var bool bUseFire;
 
 function SecondaryFireAction();
 function PrimaryFireAction();
 function InitWeapon();
+function InitBossFight();
+function ExitBossFight();
 
 event PostBeginPlay()
 {
@@ -80,4 +83,9 @@ function Vector GetTraceOffset()
 function UpdateTarget(Actor NewTarget)
 {
 	CurrentTarget = NewTarget;
+}
+
+defaultproperties
+{
+	bAllowPickup=True
 }

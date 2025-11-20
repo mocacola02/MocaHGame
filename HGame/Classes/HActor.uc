@@ -5,6 +5,10 @@ class HActor extends Actor;
 var harry PlayerHarry;
 
 
+//-------------------------------------
+// Events
+//-------------------------------------
+
 event PostBeginPlay()
 {
 	Super.PostBeginPlay();
@@ -14,20 +18,21 @@ event PostBeginPlay()
 	ResolveEVulnerableToSpell();
 }
 
-function bool HandleSpell(class<baseSpell> HitSpell)
+event TakeDamage(int Damage, Pawn EventInstigator, vector HitLocation, vector Momentum, name DamageType)
 {
-	if (HitSpell == SpellVulnerableTo)
+	if (DamageType == GetSpellName())
 	{
 		ProcessSpell();
-		return true;
 	}
 	else
 	{
-		return false;
+		Super.TakeDamage();
 	}
 }
 
-function ProcessSpell(class<baseSpell> HitSpell); // Define in child classes
+//-------------------------------------
+// Debug Functions
+//-------------------------------------
 
 // Moca: I'm adding this since 1) I'm used to print() in Godot lmfao and 2) I can have it clearly mark the "speaker" of the message
 function Print(string msg, optional bool BothLogs)
@@ -44,6 +49,23 @@ function Print(string msg, optional bool BothLogs)
 	else
 	{
 		Log(string(self) $ " says: " $ msg);
+	}
+}
+
+//-------------------------------------
+// Magic Functions
+//-------------------------------------
+function ProcessSpell(class<baseSpell> HitSpell); // Define in child classes
+
+function name GetSpellName()
+{
+	if (SpellVulnerableTo.IsA('baseSpell'))
+	{
+		return baseSpell(SpellVulnerableTo).Default.SpellName;
+	}
+	else
+	{
+		return SpellVulnerableTo.Default.Name;
 	}
 }
 
@@ -72,6 +94,10 @@ function ResolveEVulnerableToSpell()
 		}
 	}
 }
+
+//-------------------------------------
+// Helper Functions
+//-------------------------------------
 
 function bool IsOtherLookingAt(Actor Other, float minDot)
 {

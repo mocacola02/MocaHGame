@@ -9,10 +9,11 @@ const EaseFromB= -0.171573;
 const EaseFromM=  1.171573;
 const EaseFromY=  0.171573;
 const EaseFromX=  0.2928932188;
+
 enum enumPatrolType {
-  PATROLTYPE_PATROL_POINTS,
-  PATROLTYPE_PATH_SEARCH,
-  PATROLTYPE_SPLINE_FOLLOW
+	PATROLTYPE_PATROL_POINTS,
+	PATROLTYPE_PATH_SEARCH,
+	PATROLTYPE_SPLINE_FOLLOW
 };
 
 var harry PlayerHarry;
@@ -91,48 +92,68 @@ var Actor ActorToLinkToWeapBone;
 
 function PreBeginPlay()
 {
-  Super.PreBeginPlay();
-  PlayerHarry = harry(Level.PlayerHarryActor);
-  if ( PlayerHarry == None )
-  {
-    Log("No Harry in Map!");
-  }
-  DesiredRotation.Yaw = Rotation.Yaw;
-  if ( ShadowClass != None )
-  {
-    Shadow = Spawn(ShadowClass,self);
-    if ( ActorShadow(Shadow) != None )
-    {
-      ActorShadow(Shadow).ShadowSizeFactor *= ShadowScale;
-    }
-  }
-  CreateAttachedParticleFX();
+	Super.PreBeginPlay();
+	PlayerHarry = harry(Level.PlayerHarryActor);
+
+	if ( PlayerHarry == None )
+	{
+		Log("No Harry in Map!");
+	}
+
+	DesiredRotation.Yaw = Rotation.Yaw;
+
+	if ( ShadowClass != None )
+	{
+		Shadow = Spawn(ShadowClass,self);
+
+		if ( ActorShadow(Shadow) != None )
+		{
+			ActorShadow(Shadow).ShadowSizeFactor *= ShadowScale;
+		}
+	}
+
+	CreateAttachedParticleFX();
 }
 
 function PostBeginPlay()
 {
-  Super.PostBeginPlay();
-  if ( CutName == "" )
-  {
-    CutName = string(Name);
-  }
-  foreach AllActors(Class'BaseCam',Camera)
-  {
-    // goto JL0032;
-	break;
-  }
+	Super.PostBeginPlay();
+	if ( CutName == "" )
+	{
+		CutName = string(Name);
+	}
+
+	foreach AllActors(Class'BaseCam',Camera)
+	{
+		break;
+	}
 }
 
-function bool HandleSpell(class<baseSpell> HitSpell)
+event TakeDamage(int Damage, Pawn EventInstigator, vector HitLocation, vector Momentum, name DamageType)
 {
-	if (HitSpell == SpellVulnerableTo)
+	if (DamageType == GetSpellName())
 	{
 		ProcessSpell();
-		return true;
+	}
+	else if ( (DamageType == 'ZonePain') &&  !bIgnoreZonePainDamage )
+	{
+		Destroy();
 	}
 	else
 	{
-		return false;
+		Super.TakeDamage();
+	}
+}
+
+function name GetSpellName()
+{
+	if (SpellVulnerableTo.IsA('baseSpell'))
+	{
+		return baseSpell(SpellVulnerableTo).Default.SpellName;
+	}
+	else
+	{
+		return SpellVulnerableTo.Default.Name;
 	}
 }
 
@@ -165,93 +186,89 @@ function ChangePlayer(harry NewPlayer)
 	}
 }
 
-function TakeDamage (int Damage, Pawn InstigatedBy, Vector HitLocation, Vector Momentum, name DamageType)
-{
-  if ( (DamageType == 'ZonePain') &&  !bIgnoreZonePainDamage )
-  {
-    Destroy();
-  }
-}
-
 function bool PawnCantStandOnMe()
 {
-  return bCantStandOnMe;
+	return bCantStandOnMe;
 }
 
 event OnResolveGameState()
 {
-  if (  !bInCurrentGameState )
-  {
-    bHidden = True;
-    SetCollision(False,False,False);
-  }
+	if (  !bInCurrentGameState )
+	{
+		bHidden = True;
+		SetCollision(False,False,False);
+	}
 }
 
-function ColObjTouch (Actor Other, GenericColObj ColObj)
-{
-}
+function ColObjTouch (Actor Other, GenericColObj ColObj);
 
 function bool ShouldPlayIdleOnRelease()
 {
-  return True;
+  	return True;
 }
 
 event Destroyed()
 {
-  local int I;
+	local int I;
 
-  for(I = 0; I < NUM_ATTACHED_PARTICLE_FX; I++)
-  {
-    if ( attachedParticleFX[I] != None )
-    {
-      attachedParticleFX[I].Shutdown();
-    }
-  }
-  if ( _FlyToController != None )
-  {
-    _FlyToController.Destroy();
-  }
-  Super.Destroyed();
+	for(I = 0; I < NUM_ATTACHED_PARTICLE_FX; I++)
+	{
+		if ( attachedParticleFX[I] != None )
+		{
+			attachedParticleFX[I].Shutdown();
+		}
+	}
+
+	if ( _FlyToController != None )
+	{
+		_FlyToController.Destroy();
+	}
+
+	Super.Destroyed();
 }
 
 function CreateAttachedParticleFX()
 {
-  local int I;
+	local int I;
 
-  for(I = 0; I < NUM_ATTACHED_PARTICLE_FX; I++)
-  {
-    if ( attachedParticleClass[I] != None )
-    {
-      attachedParticleFX[I] = ParticleFX(FancySpawn(attachedParticleClass[I],self,,Location + attachedParticleOffset[I]));
-      attachedParticleFX[I].SetRotation(attachedParticleClass[I].Default.Rotation);
-      attachedParticleFX[I].SetPhysics(PHYS_Trailer);
-      if ( attachedParticleOffset[I] != vect(0.00,0.00,0.00) )
-      {
-        attachedParticleFX[I].bTrailerPrePivot = True;
-        attachedParticleFX[I].PrePivot = attachedParticleOffset[I];
-      }
-    }
-  }
+	for(I = 0; I < NUM_ATTACHED_PARTICLE_FX; I++)
+	{
+		if ( attachedParticleClass[I] != None )
+		{
+			attachedParticleFX[I] = ParticleFX(FancySpawn(attachedParticleClass[I],self,,Location + attachedParticleOffset[I]));
+			attachedParticleFX[I].SetRotation(attachedParticleClass[I].Default.Rotation);
+			attachedParticleFX[I].SetPhysics(PHYS_Trailer);
+
+			if ( attachedParticleOffset[I] != vect(0.00,0.00,0.00) )
+			{
+				attachedParticleFX[I].bTrailerPrePivot = True;
+				attachedParticleFX[I].PrePivot = attachedParticleOffset[I];
+			}
+		}
+	}
 }
 
 function killAttachedParticleFX (float Time)
 {
-  local int I;
+	local int I;
 
-  for(I = 0; I < NUM_ATTACHED_PARTICLE_FX; I++)
-  {
-    if ( attachedParticleFX[I] != None )
-    {
-      attachedParticleFX[I].ParticlesPerSec.Base = 0.0;
-      attachedParticleFX[I].Lifetime.Base = 0.0;
-      if ( Time == 0.0 )
-      {
-        attachedParticleFX[I].Destroy();
-      } else {
-        attachedParticleFX[I].LifeSpan = Time;
-      }
-    }
-  }
+	for(I = 0; I < NUM_ATTACHED_PARTICLE_FX; I++)
+	{
+		if ( attachedParticleFX[I] != None )
+		{
+			attachedParticleFX[I].ParticlesPerSec.Base = 0.0;
+			attachedParticleFX[I].Lifetime.Base = 0.0;
+
+			if ( Time == 0.0 )
+			{
+				attachedParticleFX[I].Destroy();
+			}
+			else
+			{
+				attachedParticleFX[I].LifeSpan = Time;
+			}
+		}
+	}
 }
 
 auto state() stateIdle
@@ -268,770 +285,829 @@ function ThrownLanded (Vector HitNormal)
 
 state stateBeingThrown
 {
-  function Landed (Vector HitNormal)
-  {
-    ThrownLanded(HitNormal);
-  }
-  
-  function Touch (Actor Other)
-  {
-    PlayerHarry.ClientMessage("HPawn: Touch:" $ string(Other));
-  }
-  
-  function Bump (Actor Other)
-  {
-    PlayerHarry.ClientMessage("HPawn: Bump:" $ string(Other));
-  }
-  
-  function HitWall (Vector HitNormal, Actor HitWall)
-  {
-    PlayerHarry.ClientMessage("HPawn: Hitwall:" $ string(HitWall));
-  }
-  
- begin:
-  Sleep(5.0);
-  goto ('Begin');
+	function Landed (Vector HitNormal)
+	{
+		ThrownLanded(HitNormal);
+	}
+	
+	function Touch (Actor Other)
+	{
+		PlayerHarry.ClientMessage("HPawn: Touch:" $ string(Other));
+	}
+	
+	function Bump (Actor Other)
+	{
+		PlayerHarry.ClientMessage("HPawn: Bump:" $ string(Other));
+	}
+	
+	function HitWall (Vector HitNormal, Actor HitWall)
+	{
+		PlayerHarry.ClientMessage("HPawn: Hitwall:" $ string(HitWall));
+	}
 }
 
-function PawnHearHarryNoise()
-{
-}
+function PawnHearHarryNoise();
 
 function Tick (float dtime)
 {
-  Super.Tick(dtime);
-  fCurrTime += dtime;
-  if ( fCurrTime < 1.0 )
-  {
-    return;
-  }
-  fCurrTime = 0.0;
-  if ( bDespawnable && bDespawned )
-  {
-    if (  !Camera.CameraCanSeeYou(Location) )
-    {
-      Destroy();
-    }
-  }
+	Super.Tick(dtime);
+
+	fCurrTime += dtime;
+
+	if ( fCurrTime < 1.0 )
+	{
+		return;
+	}
+
+	fCurrTime = 0.0;
+
+	if ( bDespawnable && bDespawned )
+	{
+		if (  !Camera.CameraCanSeeYou(Location) )
+		{
+			Destroy();
+		}
+	}
 }
 
 function AttachActorToWeaponBone (Actor A)
 {
-  ActorToLinkToWeapBone = A;
-  A.SetPhysics(PHYS_None);
+	ActorToLinkToWeapBone = A;
+	A.SetPhysics(PHYS_None);
 }
 
 function UnAttachActorFromWeaponBone()
 {
-  ActorToLinkToWeapBone = None;
+  	ActorToLinkToWeapBone = None;
 }
 
 function DestroyControllers()
 {
-  if ( _FlyToController != None )
-  {
-    _FlyToController.DisableController();
-  }
-  Super.DestroyControllers();
+	if ( _FlyToController != None )
+	{
+		_FlyToController.DisableController();
+	}
+
+	Super.DestroyControllers();
 }
 
 function GlobalCutBypass()
 {
-  Super.GlobalCutBypass();
-  if ( (_FlyToController != None) && _FlyToController.bEnabled )
-  {
-    SetLocation2(_FlyToController.GetVDest());
-    DoCutCueNotify();
-    _FlyToController.DisableController();
-  }
+	Super.GlobalCutBypass();
+
+	if ( (_FlyToController != None) && _FlyToController.bEnabled )
+	{
+		SetLocation2(_FlyToController.GetVDest());
+		DoCutCueNotify();
+		_FlyToController.DisableController();
+	}
 }
 
 function bool FollowPatrolPoints (name StartPointName, optional name EndPointName, optional bool bSnapToStartLoc, optional float Speed)
 {
-  local PatrolPoint dp;
+	local PatrolPoint dp;
 
-  foreach AllActors(Class'PatrolPoint',dp)
-  {
-    if ( dp.Name == StartPointName )
-    {
-      // goto JL002C;
-	  break;
-    }
-  }
-  if ( dp == None )
-  {
-    Log("FollowPatrolPoints: Couldn't find start point");
-    return False;
-  }
-  if ( bSnapToStartLoc )
-  {
-    SetLocation(dp.Location);
-  }
-  if ( Speed != 0 )
-  {
-    GroundSpeed = Speed;
-  } else //{
-    if ( Characters(self) != None )
-    {
-      if ( bPlayRunAnim )
-      {
-        GroundSpeed = GroundRunSpeed;
-      } else {
-        GroundSpeed = GroundWalkSpeed;
-      }
-    }
-  //}
-  firstPatrolPointObjectName = StartPointName;
-  DestinationObjectName = EndPointName;
-  ePatrolType = PATROLTYPE_PATROL_POINTS;
-  bGoBackToLastNavPoint = False;
-  navP = None;
-  tempNavP = None;
-  LastNavP = None;
-  GotoState('patrol');
-  return True;
+	foreach AllActors(Class'PatrolPoint',dp)
+	{
+		if ( dp.Name == StartPointName )
+		{
+			break;
+		}
+	}
+
+	if ( dp == None )
+	{
+		Log("FollowPatrolPoints: Couldn't find start point");
+		return False;
+	}
+
+	if ( bSnapToStartLoc )
+	{
+		SetLocation(dp.Location);
+	}
+
+	if ( Speed != 0 )
+	{
+		GroundSpeed = Speed;
+	}
+	else if ( Characters(self) != None )
+	{
+		if ( bPlayRunAnim )
+		{
+			GroundSpeed = GroundRunSpeed;
+		}
+		else
+		{
+			GroundSpeed = GroundWalkSpeed;
+		}
+	}
+
+	firstPatrolPointObjectName = StartPointName;
+	DestinationObjectName = EndPointName;
+	ePatrolType = PATROLTYPE_PATROL_POINTS;
+	bGoBackToLastNavPoint = False;
+	navP = None;
+	tempNavP = None;
+	LastNavP = None;
+	GotoState('patrol');
+	return True;
 }
 
 function bool NavigateToPathNode (name StartPointName, name EndPointName, optional bool bSnapToStartLoc, optional float Speed)
 {
-  local NavigationPoint sp;
-  local NavigationPoint dp;
+	local NavigationPoint sp;
+	local NavigationPoint dp;
 
-  foreach AllActors(Class'NavigationPoint',dp)
-  {
-    if ( dp.Name == EndPointName )
-    {
-      // goto JL002C;
-	  break;
-    }
-  }
-  if ( dp == None )
-  {
-    Log("NavigateToPathNode: Couldn't find end point named:" $ string(EndPointName));
-    return False;
-  }
-  if ( StartPointName != 'None' )
-  {
-    foreach AllActors(Class'NavigationPoint',sp)
-    {
-      if ( sp.Name == StartPointName )
-      {
-        // goto JL00B3;
-		break;
-      }
-    }
-  }
-  if ( sp == None )
-  {
-    sp = FindClosestNavigationPoint(dp.Tag);
-  }
-  if ( bSnapToStartLoc )
-  {
-    SetLocation(dp.Location);
-  }
-  if ( Speed != 0 )
-  {
-    GroundSpeed = Speed;
-  } else //{
-    if ( Characters(self) != None )
-    {
-      if ( bPlayRunAnim )
-      {
-        GroundSpeed = GroundRunSpeed;
-      } else {
-        GroundSpeed = GroundWalkSpeed;
-      }
-    }
-  //}
-  FirstObjectName = sp.Name;
-  DestinationObjectName = EndPointName;
-  ePatrolType = PATROLTYPE_PATH_SEARCH;
-  navP = None;
-  tempNavP = None;
-  LastNavP = None;
-  GotoState('patrol');
-  return True;
+	foreach AllActors(Class'NavigationPoint',dp)
+	{
+		if ( dp.Name == EndPointName )
+		{
+			break;
+		}
+	}
+
+	if ( dp == None )
+	{
+		Log("NavigateToPathNode: Couldn't find end point named:" $ string(EndPointName));
+		return False;
+	}
+
+	if ( StartPointName != 'None' )
+	{
+		foreach AllActors(Class'NavigationPoint',sp)
+		{
+			if ( sp.Name == StartPointName )
+			{
+				break;
+			}
+		}
+	}
+
+	if ( sp == None )
+	{
+		sp = FindClosestNavigationPoint(dp.Tag);
+	}
+
+	if ( bSnapToStartLoc )
+	{
+		SetLocation(dp.Location);
+	}
+
+	if ( Speed != 0 )
+	{
+		GroundSpeed = Speed;
+	}
+	else if ( Characters(self) != None )
+	{
+		if ( bPlayRunAnim )
+		{
+			GroundSpeed = GroundRunSpeed;
+		}
+		else
+		{
+			GroundSpeed = GroundWalkSpeed;
+		}
+	}
+
+	FirstObjectName = sp.Name;
+	DestinationObjectName = EndPointName;
+	ePatrolType = PATROLTYPE_PATH_SEARCH;
+	navP = None;
+	tempNavP = None;
+	LastNavP = None;
+	GotoState('patrol');
+	return True;
 }
 
 state() patrol
 {
-  //UTPT added this for some reason -AdamJD
-  //ignores  Tick;
-  
-  function bool ShouldPlayIdleOnRelease()
-  {
-    return False;
-  }
-  
-  function startup()
-  {
-    if ( ePatrolType == PATROLTYPE_PATROL_POINTS )
-    {
-      if ( navP == None )
-      {
-        foreach AllActors(Class'NavigationPoint',navP)
-        {
-          if ( navP.Name == firstPatrolPointObjectName )
-          {
-            // goto JL0045;
-			break;
-          }
-        }
-        if ( navP == None )
-        {
-          GotoState('stateIdle');
-          return;
-        }
-        PatrolPointLinkTag = PatrolPoint(navP).PatrolPointLinkTag;
-        LastNavP = navP;
-        SavedFirstNavP = navP;
-      }
-    } else {
-      if ( DestinationObjectName != 'None' )
-      {
-        foreach AllActors(Class'NavigationPoint',navP)
-        {
-          destP = navP;
-          if ( (destP != None) && (destP.Name == DestinationObjectName) )
-          {
-            // goto JL00DF;
-			break;
-          }
-        }
-      }
-      if ( FirstObjectName != 'None' )
-      {
-        foreach AllActors(Class'NavigationPoint',navP)
-        {
-          if ( navP.Name == FirstObjectName )
-          {
-            // goto JL011B;
-			break;
-          }
-        }
-      }
-    }
-  }
-  
-  //UTPT didn't add this for some reason -AdamJD
-  function Tick(float dtime)
-  {
-	Global.Tick(dtime);
-
-	if( bMoveRequest )
+	function bool ShouldPlayIdleOnRelease()
 	{
-		bMoveRequest = False;
-		vLastLocation = Location;
-		MoveSmooth( vMoveRequest );
+		return False;
 	}
-  }
-  
-  function EndState()
-  {
-    LastLevelTime = 0.0;
-    bMoveRequest = False;
-    bNoZoneFriction = False;
-  }
-  
-begin:
-  Enable('Tick');
-  if ( ePatrolType == PATROLTYPE_SPLINE_FOLLOW )
-  {
-    GotoState('patrolFollowSpline');
-  }
-  startup();
-  bNoZoneFriction = True;
-  if ( (ePatrolType == PATROLTYPE_PATH_SEARCH) && (FirstObjectName == 'None') )
-  {
-    goto ('idleloop');
-  }
-  if ( bPlayRunAnim )
-  {
-    patrolPlayRunAnim();
-  } else {
-    patrolPlayWalkAnim();
-  }
-moveLoop:
-  if ( ePatrolType == PATROLTYPE_PATH_SEARCH )
-  {
-    NextPathPoint = FindPath(navP,DestinationObjectName);
-  }
-  if ( (ePatrolType == PATROLTYPE_PATROL_POINTS) && bUseFraySplines &&  !bGoBackToLastNavPoint && PatrolPoint(navP).bHasSplineInfo )
-  {
-    // if (  !MoveTo_FraySpline() )
-	while (  !MoveTo_FraySpline() )
-    {
-      Sleep(0.005);
-      // goto JL00C7;
-    }
-  } else {
-    if ( (ePatrolType == PATROLTYPE_PATROL_POINTS) && bGoBackToLastNavPoint )
-    {
-      navP = LastNavP;
-      bGoBackToLastNavPoint = False;
-    }
-    if ( (ePatrolType == PATROLTYPE_PATROL_POINTS) && bUseFrayMoveTo )
-    {
-      // if (  !MoveTo_Fray() )
-	  while (  !MoveTo_Fray() )
-      {
-        Sleep(0.005);
-        // goto JL0125;
-      }
-    } else {
-      if ( VSize2D(navP.Location - Location) > 1 )
-      {
-        MoveTo(navP.Location);
-      }
-    }
-  }
-  if ( ePatrolType == PATROLTYPE_PATROL_POINTS )
-  {
-    _PawnAtPatrolPoint(PatrolPoint(navP));
-  } else {
-    if ( navP == destP )
-    {
-      PawnAtDestination();
-    }
-    PawnAtStation();
-  }
-  if ( ePatrolType == PATROLTYPE_PATROL_POINTS )
-  {
-    tempNavP = navP;
-    if ( PatrolPoint(navP).NextPatrolPoint == None )
-    {
-      if ( bGoToClosestPatrolPoint )
-      {
-        navP = FindClosestPatrolPoint(LastNavP,navP);
-      } else {
-        navP = None;
-      }
-    } else {
-      navP = PatrolPoint(navP).NextPatrolPoint;
-    }
-    LastNavP = tempNavP;
-    _PostPawnAtPatrolPoint(PatrolPoint(LastNavP),PatrolPoint(navP));
-  } else {
-    navP = NextPathPoint;
-  }
-  if ( navP == None )
-  {
-idleloop:
-    // if ( True )
-	while ( True )
-    {
-      LoopAnim(IdleAnimName,1.0,0.75);
-      Sleep(SpeechTime);
-      SpeechTime = 0.0;
-      Sleep(0.5);
-      if ( bLoopPath )
-      {
-        if ( ePatrolType == PATROLTYPE_PATROL_POINTS )
-        {
-          foreach AllActors(Class'NavigationPoint',navP)
-          {
-            if ( navP.Name == firstPatrolPointObjectName )
-            {
-              // goto JL02D6;
-			  break;
-            }
-          }
-        } else {
-          foreach AllActors(Class'NavigationPoint',navP)
-          {
-            if ( navP.Name == FirstObjectName )
-            {
-			  break;
-            }
-          }
-        }
-		break;
-      }
-    }
-  }
-  NextPathPoint = None;
-  goto ('moveLoop');
+	
+	function startup()
+	{
+		if ( ePatrolType == PATROLTYPE_PATROL_POINTS )
+		{
+			if ( navP == None )
+			{
+				foreach AllActors(Class'NavigationPoint',navP)
+				{
+				if ( navP.Name == firstPatrolPointObjectName )
+				{
+					break;
+				}
+				}
+				if ( navP == None )
+				{
+				GotoState('stateIdle');
+				return;
+				}
+				PatrolPointLinkTag = PatrolPoint(navP).PatrolPointLinkTag;
+				LastNavP = navP;
+				SavedFirstNavP = navP;
+			}
+		}
+		else
+		{
+			if ( DestinationObjectName != 'None' )
+			{
+				foreach AllActors(Class'NavigationPoint',navP)
+				{
+					destP = navP;
+					if ( (destP != None) && (destP.Name == DestinationObjectName) )
+					{
+						break;
+					}
+				}
+			}
+
+			if ( FirstObjectName != 'None' )
+			{
+				foreach AllActors(Class'NavigationPoint',navP)
+				{
+					if ( navP.Name == FirstObjectName )
+					{
+						break;
+					}
+				}
+			}
+		}
+	}
+	
+	function Tick(float dtime)
+	{
+		Global.Tick(dtime);
+
+		if( bMoveRequest )
+		{
+			bMoveRequest = False;
+			vLastLocation = Location;
+			MoveSmooth( vMoveRequest );
+		}
+	}
+	
+	function EndState()
+	{
+		LastLevelTime = 0.0;
+		bMoveRequest = False;
+		bNoZoneFriction = False;
+	}
+	
+	begin:
+		Enable('Tick');
+
+		if ( ePatrolType == PATROLTYPE_SPLINE_FOLLOW )
+		{
+			GotoState('patrolFollowSpline');
+		}
+
+		startup();
+		bNoZoneFriction = True;
+
+		if ( (ePatrolType == PATROLTYPE_PATH_SEARCH) && (FirstObjectName == 'None') )
+		{
+			goto ('idleloop');
+		}
+
+		if ( bPlayRunAnim )
+		{
+			patrolPlayRunAnim();
+		}
+		else
+		{
+			patrolPlayWalkAnim();
+		}
+	
+	moveLoop:
+		if ( ePatrolType == PATROLTYPE_PATH_SEARCH )
+		{
+			NextPathPoint = FindPath(navP,DestinationObjectName);
+		}
+		
+		if ( (ePatrolType == PATROLTYPE_PATROL_POINTS) && bUseFraySplines &&  !bGoBackToLastNavPoint && PatrolPoint(navP).bHasSplineInfo )
+		{
+			while (  !MoveTo_FraySpline() )
+			{
+				Sleep(0.005);
+			}
+		}
+		else
+		{
+			if ( (ePatrolType == PATROLTYPE_PATROL_POINTS) && bGoBackToLastNavPoint )
+			{
+				navP = LastNavP;
+				bGoBackToLastNavPoint = False;
+			}
+
+			if ( (ePatrolType == PATROLTYPE_PATROL_POINTS) && bUseFrayMoveTo )
+			{
+				while (  !MoveTo_Fray() )
+				{
+					Sleep(0.005);
+				}
+			}
+			else
+			{
+				if ( VSize2D(navP.Location - Location) > 1 )
+				{
+					MoveTo(navP.Location);
+				}
+			}
+		}
+
+		if ( ePatrolType == PATROLTYPE_PATROL_POINTS )
+		{
+			_PawnAtPatrolPoint(PatrolPoint(navP));
+		}
+		else
+		{
+			if ( navP == destP )
+			{
+				PawnAtDestination();
+			}
+
+			PawnAtStation();
+		}
+
+		if ( ePatrolType == PATROLTYPE_PATROL_POINTS )
+		{
+			tempNavP = navP;
+			if ( PatrolPoint(navP).NextPatrolPoint == None )
+			{
+				if ( bGoToClosestPatrolPoint )
+				{
+					navP = FindClosestPatrolPoint(LastNavP,navP);
+				}
+				else
+				{
+					navP = None;
+				}
+			}
+			else
+			{
+				navP = PatrolPoint(navP).NextPatrolPoint;
+			}
+
+			LastNavP = tempNavP;
+			_PostPawnAtPatrolPoint(PatrolPoint(LastNavP),PatrolPoint(navP));
+		}
+		else
+		{
+			navP = NextPathPoint;
+		}
+
+		if ( navP == None )
+		{
+			idleloop:
+				while ( True )
+				{
+					LoopAnim(IdleAnimName,1.0,0.75);
+					Sleep(SpeechTime);
+					SpeechTime = 0.0;
+					Sleep(0.5);
+
+					if ( bLoopPath )
+					{
+						if ( ePatrolType == PATROLTYPE_PATROL_POINTS )
+						{
+							foreach AllActors(Class'NavigationPoint',navP)
+							{
+								if ( navP.Name == firstPatrolPointObjectName )
+								{
+									break;
+								}
+							}
+						}
+						else
+						{
+							foreach AllActors(Class'NavigationPoint',navP)
+							{
+								if ( navP.Name == FirstObjectName )
+								{
+									break;
+								}
+							}
+						}
+						break;
+					}
+				}
+		}
+
+		NextPathPoint = None;
+		goto ('moveLoop');
 }
 
 function RestartPatrol()
 {
-  SetLocation2(SavedFirstNavP.Location);
-  bPlayRunAnim = False;
-  FollowPatrolPoints(SavedFirstNavP.Name,'None',True);
-  cm("******* " $ string(Name) $ " RestartPatrol");
+	SetLocation2(SavedFirstNavP.Location);
+	bPlayRunAnim = False;
+	FollowPatrolPoints(SavedFirstNavP.Name,'None',True);
+	cm("******* " $ string(Name) $ " RestartPatrol");
 }
 
 state statePatrolPointPause
 {
-  function bool ShouldPlayIdleOnRelease()
-  {
-    return False;
-  }
-  
- begin:
-  Velocity = vect(0.00,0.00,0.00);
-  Acceleration = vect(0.00,0.00,0.00);
-  LoopAnim(PatrolPoint(LastNavP).PauseAnim,1.0,0.5);
-  if ( PatrolPoint(LastNavP).bUseLookDir )
-  {
-    TurnTo(Location + PatrolPoint(LastNavP).lookDir);
-  }
-  Sleep(PatrolPoint(LastNavP).PauseTime);
-  GotoState('patrol');
+	function bool ShouldPlayIdleOnRelease()
+	{
+		return False;
+	}
+	
+	begin:
+		Velocity = vect(0.00,0.00,0.00);
+		Acceleration = vect(0.00,0.00,0.00);
+		LoopAnim(PatrolPoint(LastNavP).PauseAnim,1.0,0.5);
+
+		if ( PatrolPoint(LastNavP).bUseLookDir )
+		{
+			TurnTo(Location + PatrolPoint(LastNavP).lookDir);
+		}
+
+		Sleep(PatrolPoint(LastNavP).PauseTime);
+		GotoState('patrol');
 }
 
 function bool MoveTo_FraySpline()
 {
-  local float dtime;
-  local float D;
-  local float speed2;
-  local float fScale;
-  local float t;
-  local float NewTimeOnPath;
-  local Vector V;
-  local Vector v1;
-  local Vector v2;
-  local Vector vMove;
-  local PatrolPoint p;
+	local float dtime;
+	local float D;
+	local float speed2;
+	local float fScale;
+	local float t;
+	local float NewTimeOnPath;
+	local Vector V;
+	local Vector v1;
+	local Vector v2;
+	local Vector vMove;
+	local PatrolPoint p;
 
-  if ( LastLevelTime == 0 )
-  {
-    LastLevelTime = Level.TimeSeconds;
-  }
-  dtime = Level.TimeSeconds - LastLevelTime;
-  LastLevelTime = Level.TimeSeconds;
-  dtime = FMin(dtime,0.1);
-  D = GroundSpeed * dtime;
-  t = D / PatrolPoint(navP).GetTanLenIn();
-  NewTimeOnPath = fTimeOnPath + t;
-  if ( NewTimeOnPath > 1 )
-  {
-    NewTimeOnPath = 1.0;
-  }
-  p = PatrolPoint(navP).PrevPatrolPoint;
-  if ( p == None )
-  {
-    vMove = (navP.Location - Location) * vect(1.00,1.00,0.00);
-    if ( vMove != vect(0.00,0.00,0.00) )
-    {
-      if ( D < VSize(vMove) )
-      {
-        vMove = Normal(vMove) * D;
-      }
-    }
-  } else {
-    v2 = navP.Location + (PatrolPoint(navP).vFraySplineTangent *  -PatrolPoint(navP).GetTanLenIn() * (1 - NewTimeOnPath));
-    v1 = p.Location + p.vFraySplineTangent * p.GetTanLenOut() * NewTimeOnPath;
-    V = v1 + (v2 - v1) * EaseBetween(NewTimeOnPath);
-    vMove = V - Location;
-    vMove.Z = 0.0;
-    speed2 = VSize(vMove) / dtime;
-    if ( speed2 > GroundSpeed * 1.5 )
-    {
-      vMove *= GroundSpeed * 1.5 / speed2;
-    }
-  }
-  v1 = Location - vLastLocation;
-  if ( (v1.X != 0) || (v1.Y != 0) )
-  {
-    DesiredRotation = rotator(v1 * vect(1.00,1.00,0.00));
-  }
-  fTimeOnPath = NewTimeOnPath;
-  bMoveRequest = True;
-  vMoveRequest = vMove;
-  if ( VSize2D(Location - navP.Location) < 1 )
-  {
-    fTimeOnPath = 0.0;
-    LastLevelTime = 0.0;
-    return True;
-  } else {
-    return False;
-  }
+	if ( LastLevelTime == 0 )
+	{
+		LastLevelTime = Level.TimeSeconds;
+	}
+
+	dtime = Level.TimeSeconds - LastLevelTime;
+	LastLevelTime = Level.TimeSeconds;
+	dtime = FMin(dtime,0.1);
+	D = GroundSpeed * dtime;
+	t = D / PatrolPoint(navP).GetTanLenIn();
+	NewTimeOnPath = fTimeOnPath + t;
+
+	if ( NewTimeOnPath > 1 )
+	{
+		NewTimeOnPath = 1.0;
+	}
+
+	p = PatrolPoint(navP).PrevPatrolPoint;
+
+	if ( p == None )
+	{
+		vMove = (navP.Location - Location) * vect(1.00,1.00,0.00);
+
+		if ( vMove != vect(0.00,0.00,0.00) )
+		{
+			if ( D < VSize(vMove) )
+			{
+				vMove = Normal(vMove) * D;
+			}
+		}
+	}
+	else
+	{
+		v2 = navP.Location + (PatrolPoint(navP).vFraySplineTangent *  -PatrolPoint(navP).GetTanLenIn() * (1 - NewTimeOnPath));
+		v1 = p.Location + p.vFraySplineTangent * p.GetTanLenOut() * NewTimeOnPath;
+		V = v1 + (v2 - v1) * EaseBetween(NewTimeOnPath);
+		vMove = V - Location;
+		vMove.Z = 0.0;
+		speed2 = VSize(vMove) / dtime;
+
+		if ( speed2 > GroundSpeed * 1.5 )
+		{
+			vMove *= GroundSpeed * 1.5 / speed2;
+		}
+	}
+
+	v1 = Location - vLastLocation;
+
+	if ( (v1.X != 0) || (v1.Y != 0) )
+	{
+		DesiredRotation = rotator(v1 * vect(1.00,1.00,0.00));
+	}
+
+	fTimeOnPath = NewTimeOnPath;
+	bMoveRequest = True;
+	vMoveRequest = vMove;
+
+	if ( VSize2D(Location - navP.Location) < 1 )
+	{
+		fTimeOnPath = 0.0;
+		LastLevelTime = 0.0;
+		return True;
+	}
+	else
+	{
+		return False;
+	}
 }
 
 function bool MoveTo_Fray()
 {
-  local float dtime;
-  local float D;
-  local float speed2;
-  local float fScale;
-  local float t;
-  local Vector V;
-  local Vector v1;
-  local Vector v2;
-  local Vector vMove;
-  local PatrolPoint p;
+	local float dtime;
+	local float D;
+	local float speed2;
+	local float fScale;
+	local float t;
+	local Vector V;
+	local Vector v1;
+	local Vector v2;
+	local Vector vMove;
+	local PatrolPoint p;
 
-  if ( LastLevelTime == 0 )
-  {
-    LastLevelTime = Level.TimeSeconds;
-  }
-  dtime = Level.TimeSeconds - LastLevelTime;
-  LastLevelTime = Level.TimeSeconds;
-  dtime = FMin(dtime,0.1);
-  D = GroundSpeed * dtime;
-  vMove = Normal((navP.Location - Location) * vect(1.00,1.00,0.00)) * D;
-  V = vLastLocation;
-  v1 = Location - vLastLocation;
-  if ( (v1.X != 0) || (v1.Y != 0) )
-  {
-    DesiredRotation = rotator(v1 * vect(1.00,1.00,0.00));
-  }
-  bMoveRequest = True;
-  vMoveRequest = vMove;
-  v1 = navP.Location - V;
-  v2 = navP.Location - Location;
-  v1.Z = 0.0;
-  v2.Z = 0.0;
-  t = v1 Dot v2;
-  if ( t <= 0 )
-  {
-    LastLevelTime = 0.0;
-    return True;
-  } else {
-    return False;
-  }
+	if ( LastLevelTime == 0 )
+	{
+		LastLevelTime = Level.TimeSeconds;
+	}
+
+	dtime = Level.TimeSeconds - LastLevelTime;
+	LastLevelTime = Level.TimeSeconds;
+	dtime = FMin(dtime,0.1);
+	D = GroundSpeed * dtime;
+	vMove = Normal((navP.Location - Location) * vect(1.00,1.00,0.00)) * D;
+	V = vLastLocation;
+	v1 = Location - vLastLocation;
+
+	if ( (v1.X != 0) || (v1.Y != 0) )
+	{
+		DesiredRotation = rotator(v1 * vect(1.00,1.00,0.00));
+	}
+
+	bMoveRequest = True;
+	vMoveRequest = vMove;
+	v1 = navP.Location - V;
+	v2 = navP.Location - Location;
+	v1.Z = 0.0;
+	v2.Z = 0.0;
+	t = v1 Dot v2;
+
+	if ( t <= 0 )
+	{
+		LastLevelTime = 0.0;
+		return True;
+	}
+	else
+	{
+		return False;
+	}
 }
 
 function patrolPlayRunAnim()
 {
-  LoopAnim(RunAnimName,fPatrolAnimRate,0.75);
+  	LoopAnim(RunAnimName,fPatrolAnimRate,0.75);
 }
 
 function patrolPlayWalkAnim()
 {
-  LoopAnim(WalkAnimName,fPatrolAnimRate,0.75);
+  	LoopAnim(WalkAnimName,fPatrolAnimRate,0.75);
 }
 
 function PatrolPoint FindClosestPatrolPoint (Actor ExclusionActor1, Actor ExclusionActor2)
 {
-  local PatrolPoint tempPatrolPoint;
-  local float fDist;
-  local float fClosestDist;
-  local PatrolPoint ClosestActor;
+	local PatrolPoint tempPatrolPoint;
+	local float fDist;
+	local float fClosestDist;
+	local PatrolPoint ClosestActor;
 
-  fClosestDist = 100000.0;
-  foreach AllActors(Class'PatrolPoint',tempPatrolPoint)
-  {
-    if ( (PatrolPointLinkTag != 'None') && (PatrolPointLinkTag != tempPatrolPoint.PatrolPointLinkTag) )
-    {
-      continue;
-    }
-    fDist = VSize(Location - tempPatrolPoint.Location);
-    if ( (tempPatrolPoint != ExclusionActor1) && (tempPatrolPoint != ExclusionActor2) && (fDist < fClosestDist) )
-    {
-      fClosestDist = fDist;
-      ClosestActor = tempPatrolPoint;
-    }
-  }
-  return ClosestActor;
+	fClosestDist = 100000.0;
+
+	foreach AllActors(Class'PatrolPoint',tempPatrolPoint)
+	{
+		if ( (PatrolPointLinkTag != 'None') && (PatrolPointLinkTag != tempPatrolPoint.PatrolPointLinkTag) )
+		{
+			continue;
+		}
+
+		fDist = VSize(Location - tempPatrolPoint.Location);
+
+		if ( (tempPatrolPoint != ExclusionActor1) && (tempPatrolPoint != ExclusionActor2) && (fDist < fClosestDist) )
+		{
+			fClosestDist = fDist;
+			ClosestActor = tempPatrolPoint;
+		}
+	}
+
+	return ClosestActor;
 }
 
 function NavigationPoint FindClosestNavigationPoint (name PathTag)
 {
-  local NavigationPoint tempPatrolPoint;
-  local float fDist;
-  local float fClosestDist;
-  local NavigationPoint ClosestActor;
+	local NavigationPoint tempPatrolPoint;
+	local float fDist;
+	local float fClosestDist;
+	local NavigationPoint ClosestActor;
 
-  fClosestDist = 100000.0;
-  foreach AllActors(Class'NavigationPoint',tempPatrolPoint,PathTag)
-  {
-    fDist = VSize(Location - tempPatrolPoint.Location);
-    if ( fDist < fClosestDist )
-    {
-      fClosestDist = fDist;
-      ClosestActor = tempPatrolPoint;
-    }
-  }
-  return ClosestActor;
+	fClosestDist = 100000.0;
+	foreach AllActors(Class'NavigationPoint',tempPatrolPoint,PathTag)
+	{
+		fDist = VSize(Location - tempPatrolPoint.Location);
+		if ( fDist < fClosestDist )
+		{
+			fClosestDist = fDist;
+			ClosestActor = tempPatrolPoint;
+		}
+	}
+	return ClosestActor;
 }
 
-function PawnAtStation()
-{
-}
+function PawnAtStation();
 
 function PawnAtDestination()
 {
-  OnEvent('ActionDone');
+  	OnEvent('ActionDone');
 }
 
 function _PawnAtPatrolPoint (PatrolPoint pP)
 {
-  if ( pP.ActionKeyword != 'None' )
-  {
-    OnEvent(pP.ActionKeyword);
-  }
-  PawnAtPatrolPoint(pP);
-  if ( pP.EventToSend != 'None' )
-  {
-    TriggerEvent(pP.EventToSend,None,self);
-  }
+	if ( pP.ActionKeyword != 'None' )
+	{
+		OnEvent(pP.ActionKeyword);
+	}
+
+	PawnAtPatrolPoint(pP);
+
+	if ( pP.EventToSend != 'None' )
+	{
+		TriggerEvent(pP.EventToSend,None,self);
+	}
 }
 
 function PawnAtPatrolPoint (PatrolPoint pP)
 {
-  if ( pP.Name == DestinationObjectName )
-  {
-    OnEvent('ActionDone');
-  }
+	if ( pP.Name == DestinationObjectName )
+	{
+		OnEvent('ActionDone');
+	}
 }
 
 function _PostPawnAtPatrolPoint (PatrolPoint CurrentP, PatrolPoint NextP)
 {
-  PostPawnAtPatrolPoint(CurrentP,NextP);
-  if ( CurrentP.bDestroyPawn )
-  {
-    Destroy();
-  }
-  if ( CurrentP.PauseTime > 0 )
-  {
-    GotoState('statePatrolPointPause');
-  }
-  if ( CurrentP.PatrolSound != None )
-  {
-    PlaySound(CurrentP.PatrolSound);
-  }
+	PostPawnAtPatrolPoint(CurrentP,NextP);
+
+	if ( CurrentP.bDestroyPawn )
+	{
+		Destroy();
+	}
+
+	if ( CurrentP.PauseTime > 0 )
+	{
+		GotoState('statePatrolPointPause');
+	}
+
+	if ( CurrentP.PatrolSound != None )
+	{
+		PlaySound(CurrentP.PatrolSound);
+	}
 }
 
-function PostPawnAtPatrolPoint (PatrolPoint CurrentP, PatrolPoint NextP)
-{
-}
+function PostPawnAtPatrolPoint (PatrolPoint CurrentP, PatrolPoint NextP);
 
 function DoFlyTo (Vector DestLoc, enumMoveType MoveType, float TimeSpan)
 {
-  DoFlyToSetup();
-  aFlyToActor = None;
-  eFlyMoveType = MoveType;
-  vFlyToStart = Location;
-  vFlyToDest = DestLoc;
-  fFlyToTimeSpan = TimeSpan;
-  fFlyToTime = 0.0;
+	DoFlyToSetup();
+	aFlyToActor = None;
+	eFlyMoveType = MoveType;
+	vFlyToStart = Location;
+	vFlyToDest = DestLoc;
+	fFlyToTimeSpan = TimeSpan;
+	fFlyToTime = 0.0;
 }
 
 function DoFlyTo_Actor (Actor A, Vector vOffset, enumMoveType MoveType, float TimeSpan, bool bFixedToChar, bool bStayLockedToActor)
 {
-  DoFlyToSetup();
-  aFlyToActor = A;
-  bFlyToFixedToDestActor = bFixedToChar;
-  bFlyToStayLockedToActor = bStayLockedToActor;
-  eFlyMoveType = MoveType;
-  vFlyToStart = Location;
-  vFlyToDest = A.Location;
-  vFlyToDestOffset = vOffset;
-  fFlyToTimeSpan = TimeSpan;
-  fFlyToTime = 0.0;
-  _FlyToController.TickParent = A;
+	DoFlyToSetup();
+	aFlyToActor = A;
+	bFlyToFixedToDestActor = bFixedToChar;
+	bFlyToStayLockedToActor = bStayLockedToActor;
+	eFlyMoveType = MoveType;
+	vFlyToStart = Location;
+	vFlyToDest = A.Location;
+	vFlyToDestOffset = vOffset;
+	fFlyToTimeSpan = TimeSpan;
+	fFlyToTime = 0.0;
+	_FlyToController.TickParent = A;
 }
 
 function DoFlyToSetup()
 {
-  if ( _FlyToController == None )
-  {
-    _FlyToController = FlyToController(FancySpawn(Class'FlyToController',self));
-    _FlyToController.SetOwner(self);
-  }
-  TickParent = _FlyToController;
-  _FlyToController.EnableController();
-  PlayerHarry.ClientMessage("DoFlyTo:" $ string(CutNotifyActor) $ " " $ sCutNotifyCue);
-  if ( _FlyToController == None )
-  {
-    Log("************* _FlyToController wasnt' made");
-    PlayerHarry.ClientMessage("*****FLYTO ERROR: _FlyToController wasnt' made");
-  }
+	if ( _FlyToController == None )
+	{
+		_FlyToController = FlyToController(FancySpawn(Class'FlyToController',self));
+		_FlyToController.SetOwner(self);
+	}
+
+	TickParent = _FlyToController;
+	_FlyToController.EnableController();
+	PlayerHarry.ClientMessage("DoFlyTo:" $ string(CutNotifyActor) $ " " $ sCutNotifyCue);
+
+	if ( _FlyToController == None )
+	{
+		Log("************* _FlyToController wasnt' made");
+		PlayerHarry.ClientMessage("*****FLYTO ERROR: _FlyToController wasnt' made");
+	}
 }
 
 function OnFlyToDone()
 {
-  PlayerHarry.ClientMessage("Flew to:" $ string(vFlyToDest) $ "  Location:" $ string(Location) $ " cue:" $ sCutNotifyCue);
-  OnEvent('ActionDone');
-  DoCutCueNotify();
+	PlayerHarry.ClientMessage("Flew to:" $ string(vFlyToDest) $ "  Location:" $ string(Location) $ " cue:" $ sCutNotifyCue);
+	OnEvent('ActionDone');
+	DoCutCueNotify();
 }
 
 function LeadActor (Actor Other, name StartPatrolPoint, name EndPatrolPoint, name Anim, string in_LeadSpeechBumpSet)
 {
-  FollowPatrolPoints(StartPatrolPoint,EndPatrolPoint);
-  LeadingActor = Other;
-  if ( Anim != 'None' )
-  {
-    LeadAnim = Anim;
-  }
-  LeadSpeechBumpSet = in_LeadSpeechBumpSet;
-  bLeadActorDone = False;
-  GotoState('stateLeadingActor');
+	FollowPatrolPoints(StartPatrolPoint,EndPatrolPoint);
+	LeadingActor = Other;
+
+	if ( Anim != 'None' )
+	{
+		LeadAnim = Anim;
+	}
+
+	LeadSpeechBumpSet = in_LeadSpeechBumpSet;
+	bLeadActorDone = False;
+	GotoState('stateLeadingActor');
 }
 
 state stateLeadingActor extends patrol
 {
-  function bool ShouldPlayIdleOnRelease()
-  {
-    return False;
-  }
-  
-  function PostPawnAtPatrolPoint (PatrolPoint CurrentP, PatrolPoint NextP)
-  {
-    Super.PostPawnAtPatrolPoint(CurrentP,NextP);
-    if ( (CurrentP.Name == DestinationObjectName) || CurrentP.bLeadActorWaitPoint &&  !LeadActor_ShouldMoveToNextPatrolPoint(LeadingActor) )
-    {
-      GotoState('stateLeadingActorPause');
-    }
-  }
-  
+	function bool ShouldPlayIdleOnRelease()
+	{
+		return False;
+	}
+	
+	function PostPawnAtPatrolPoint (PatrolPoint CurrentP, PatrolPoint NextP)
+	{
+		Super.PostPawnAtPatrolPoint(CurrentP,NextP);
+		if ( (CurrentP.Name == DestinationObjectName) || CurrentP.bLeadActorWaitPoint &&  !LeadActor_ShouldMoveToNextPatrolPoint(LeadingActor) )
+		{
+			GotoState('stateLeadingActorPause');
+		}
+	}
 }
 
 state stateLeadingActorPause
 {
-  function Tick (float dtime)
-  {
-    DesiredRotation.Yaw = rotator(LeadingActor.Location - Location).Yaw;
-  }
-  
-  function bool ShouldPlayIdleOnRelease()
-  {
-    return False;
-  }
-  
-  function AnimEnd()
-  {
-    if ( AnimSequence == LeadAnim )
-    {
-      LoopAnim(IdleAnimName,,0.75);
-    }
-  }
-  
-begin:
-  Velocity = vect(0.00,0.00,0.00);
-  Acceleration = vect(0.00,0.00,0.00);
-  if ( LeadAnim != 'None' )
-  {
-    PlayAnim(LeadAnim,1.0,0.5);
-  } else {
-    LoopAnim(IdleAnimName,1.0,0.5);
-  }
-  if ( (LastNavP.Name == DestinationObjectName) || bLeadActorDone )
-  {
-	bLeadActorDone = True;
-	cm("************ LeadActor " $ string(Name) $ " got to dest.  TurningTo forever!!!");
-	// if ( True )
-	while ( True )
+	function Tick (float dtime)
 	{
-		Sleep(100.0);
-		// goto JL00D5;
+		DesiredRotation.Yaw = rotator(LeadingActor.Location - Location).Yaw;
 	}
-  }
-  do
-  {
-	if ( (LastNavP.Name != DestinationObjectName) && LeadActor_ShouldMoveToNextPatrolPoint(LeadingActor) )
+	
+	function bool ShouldPlayIdleOnRelease()
 	{
-		if ( (HChar(self) != None) && (LeadSpeechBumpSet != "") )
+		return False;
+	}
+	
+	function AnimEnd()
+	{
+		if ( AnimSequence == LeadAnim )
 		{
-			HChar(self).DoBumpLine(True,LeadSpeechBumpSet);
+		LoopAnim(IdleAnimName,,0.75);
 		}
-		GotoState('stateLeadingActor');
 	}
-	Sleep(0.2);
-  }
-  until(False);
+	
+	begin:
+	Velocity = vect(0.00,0.00,0.00);
+	Acceleration = vect(0.00,0.00,0.00);
+	if ( LeadAnim != 'None' )
+	{
+		PlayAnim(LeadAnim,1.0,0.5);
+	} else {
+		LoopAnim(IdleAnimName,1.0,0.5);
+	}
+	if ( (LastNavP.Name == DestinationObjectName) || bLeadActorDone )
+	{
+		bLeadActorDone = True;
+		cm("************ LeadActor " $ string(Name) $ " got to dest.  TurningTo forever!!!");
+		// if ( True )
+		while ( True )
+		{
+			Sleep(100.0);
+			// goto JL00D5;
+		}
+	}
+	do
+	{
+		if ( (LastNavP.Name != DestinationObjectName) && LeadActor_ShouldMoveToNextPatrolPoint(LeadingActor) )
+		{
+			if ( (HChar(self) != None) && (LeadSpeechBumpSet != "") )
+			{
+				HChar(self).DoBumpLine(True,LeadSpeechBumpSet);
+			}
+			GotoState('stateLeadingActor');
+		}
+		Sleep(0.2);
+	}
+	until(False);
 }
 
 function bool LeadActor_ShouldMoveToNextPatrolPoint (Actor Other)

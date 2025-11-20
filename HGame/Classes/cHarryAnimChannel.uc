@@ -60,8 +60,7 @@ state statePickupItem
 	begin:
 		harry(Owner).ClientMessage("hold up arm");
 		Sleep(0.2);
-		harry(Owner).CarryActor(Weapon).CarryingActor = CarryingActor;
-		CarryActor(Weapon).InitWeapon();
+		harry(Owner).AttachCarryActor();
 		FinishAnim();
 		LoopAnim('throwhold',1.0,0.1);
 }
@@ -261,20 +260,24 @@ state stateDrinkWiggenwell
 {
   function BeginState()
   {
-    harry(Owner).HarryAnimType =  AT_Combine;
-    harry(Owner).fTimeLastDrank = Level.TimeSeconds;
-    bAnimNotReplaceable = True;
+		harry(Owner).HarryAnimType =  AT_Combine;
+		harry(Owner).fTimeLastDrank = Level.TimeSeconds;
+		bAnimNotReplaceable = True;
   }
   
   function EndState()
   {
-    propTemp.bHidden = True;
-    harry(Owner).DropCarryingActor();
-    propTemp.Destroy();
-    bAnimNotReplaceable = False;
-    harry(Owner).managerStatus.GetStatusGroup(Class'StatusGroupPotions').IncrementCount(Class'StatusItemWiggenwell',-1);
-    harry(Owner).AddHealth(100);
-    harry(Owner).PlaySound(Sound'health_boost1', SLOT_None);
+		propTemp.bHidden = True;
+		if (harry(Owner).Weapon.IsA('CarryActor'))
+		{
+			harry(Owner).CarryActor(Weapon).DropCarryingActor();
+		}
+		harry(Owner).DropCarryingActor();
+		propTemp.Destroy();
+		bAnimNotReplaceable = False;
+		harry(Owner).managerStatus.GetStatusGroup(Class'StatusGroupPotions').IncrementCount(Class'StatusItemWiggenwell',-1);
+		harry(Owner).AddHealth(100);
+		harry(Owner).PlaySound(Sound'health_boost1', SLOT_None);
   }
   
  begin:

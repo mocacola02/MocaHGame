@@ -8,6 +8,11 @@ function InitWeapon()
 	SetCarryingActor(CarryBone);
 }
 
+function PrimaryFireAction()
+{
+	ThrowCarryingActor();
+}
+
 function SetCarryingActor (optional name nameBone)
 {
 	if ( CarryingActor != None )
@@ -22,7 +27,7 @@ function SetCarryingActor (optional name nameBone)
 	else
 	{
 		print("CarryingActor was None!! Aborting carry!",true);
-		PlayerHarry.ChangeWeapon(PlayerHarry.PreviousWeapon);
+		PlayerHarry.ChangeWeapon(PlayerHarry.PreviousWeapon.Class);
 	}
 }
 
@@ -34,10 +39,10 @@ function PickupActor (Actor Other)
 		local HPawn ActorToPickup;
 		ActorToPickup = HPawn(Other);
 	}
-	else if (Other.IsA('HProp'))
+	else if (Other.IsA('HActor'))
 	{
-		local HProp ActorToPickup;
-		ActorToPickup = HProp(Other);
+		local HActor ActorToPickup;
+		ActorToPickup = HActor(Other);
 	}
 	else
 	{
@@ -71,9 +76,9 @@ function DropCarryingActor (optional bool bLatentDrop)
 	}
 
 	// If we were in pickup, go back to walk
-	if ( IsInState('statePickupItem') )
+	if ( PlayerHarry.IsInState('statePickupItem') )
 	{
-		GotoState('PlayerWalking');
+		PlayerHarry.GotoState('PlayerWalking');
 	}
 
 	// Tbh i'm not entirely sure what latent drop is, so i'm leaving it as is. I think it determines if harry can move during the drop? dunno
@@ -82,9 +87,8 @@ function DropCarryingActor (optional bool bLatentDrop)
 		HarryAnimChannel.GotoState('stateIdle');
 		HarryAnimType = AT_Replace;
 	}
-	
-	// Unhide our wand
-	Weapon.bHidden = False;
+
+	PlayerHarry.ChangeWeapon(PlayerHarry.PreviousWeapon);
 }
 
 function ThrowCarryingActor()
@@ -93,12 +97,12 @@ function ThrowCarryingActor()
 	local Actor Target;
 	local float ThrowVelocity;
 
-	if ( bThrow && (CarryingActor != None) )
+	if ( (CarryingActor != None) )
 	{
 		// Again this feels a bit risky, but we'll see
-		if (CarryingActor.IsA('HProp'))
+		if (CarryingActor.IsA('HActor'))
 		{
-			local HProp A;
+			local HActor A;
 		}
 		else if (CarryingActor.IsA('HPawn'))
 		{
@@ -110,9 +114,6 @@ function ThrowCarryingActor()
 			return;
 		}
 
-		// Reset throw var
-		bThrow = False;
-
 		// Set our actor and drop
 		A = CarryingActor;
 		DropCarryingActor(True);
@@ -121,14 +122,14 @@ function ThrowCarryingActor()
 		if (A.bAccurateThrowing)
 		{
 			// Find our target
-			aTarget = GetAccurateThrowTarget(A);
+			Target = GetAccurateThrowTarget(A);
 		}
 
 		// If we have a target and are throwing accurately
-		if ( aTarget != None && A.bAccurateThrowing)
+		if ( Target != None && A.bAccurateThrowing)
 		{
 			// "Do it" -Emperor Palpatine, 19 BBY
-			HarryAccurateThrowObject(A,aTarget,True,True);
+			HarryAccurateThrowObject(A,Target,True,True);
 		}
 		// Otherwise, just throw normally
 		else
@@ -153,6 +154,8 @@ function ThrowCarryingActor()
 			A.Velocity = V;
 		}
 	}
+
+	PlayerHarry.ChangeWeapon(PlayerHarry.PreviousWeapon.Class);
 }
 
 function Actor GetAccurateThrowTarget (Actor A)
@@ -168,7 +171,7 @@ function Actor GetAccurateThrowTarget (Actor A)
 	foreach AllActors(Class'TargetPoint',CurrTP)
 	{
 		// If the target is in front of Harry
-		if ( InFrontOfHarry(CurrTP) )
+		if ( PlayerHarry.InFrontOfHarry(CurrTP) )
 		{
 			// Get the distance between Harry and the target
 			Dist = VSize(CurrTP.Location - Location);
@@ -210,4 +213,5 @@ function HarryAccurateThrowObject (HPawn A, Actor Target, bool bCollideActors, b
 defaultproperties
 {
 	CarryBone=WeaponRight
+	bAllowPickup=False
 }

@@ -77,4 +77,8 @@ defaultproperties
 	AmbientGlow=75
 
 	bBlockCamera=True
+
+	DrawType=DT_Mesh
+
+	Mesh=SkeletalMesh'skSundialMesh'
 }

@@ -120,6 +120,8 @@ function ProcessTouch(Actor Other, Vector HitLocation)
 		Instigator = Pawn(SpellWand.Owner);
 	}
 
+	Damage *= FinalCharge;
+
 	Other.TakeDamage(Damage,Instigator,Location,Velocity,SpellName);
 }
 

@@ -18,6 +18,7 @@ var Sound AimLoopSFX;
 var Vector WandTipOffset;
 
 var class<baseSpell> CurrentSpell;
+var class<baseSpell> ForcedSpell;
 
 var ParticleFX ChargeParticles;
 
@@ -84,7 +85,7 @@ function SecondaryFireAction()
 {
 	if ( Cursor.CurrentTarget != None && Cursor.CurrentTarget.SpellVulnerableTo != None)
 	{
-		FireSpell(Cursor.CurrentTarget.SpellVulnerableTo);
+		FireSpell();
 	}
 }
 
@@ -124,6 +125,12 @@ function UpdateTarget(Actor NewTarget)
 {
 	super.UpdateTarget(NewTarget);
 
+	if (ForcedSpell != None)
+	{
+		print("Ignoring UpdateTarget, we're Forcing Spell " $ string(ForcedSpell));
+		return;
+	}
+
 	if (NewTarget != None)
 	{
 		CurrentSpell = NewTarget.SpellVulnerableTo;
@@ -132,6 +139,11 @@ function UpdateTarget(Actor NewTarget)
 	{
 		CurrentSpell = None;
 	}
+}
+
+function SetForcedSpell(class<baseSpell> NewSpell)
+{
+	ForcedSpell = NewSpell;
 }
 
 function EndCharge();
@@ -211,6 +223,9 @@ state stateCharge
 			ChargeLevel += ChargeSpeed * DeltaTime;
 			ChargeLevel = FClamp(ChargeLevel, 0.0, MaxCharge);
 
+			ChargeParticles.SizeWidth = ChargeLevel * ChargeParticles.Default.SizeWidth;
+			ChargeParticles.SizeLength = ChargeLevel * ChargeParticles.Default.SizeLength;
+
 			ChargeVolume = ChargeLevel / MaxCharge;
 			ChargeVolume = FClamp(ChargeVolume, 0.0, 1.0);
 			ModifySound(SOUND_Volume, ChargeVolume, ChargeLevel, SLOT_Interact);
@@ -241,8 +256,18 @@ state stateFire
 	function FireSpell()
 	{
 		local baseSpell FiredSpell;
-		FiredSpell = Spawn(SpellToFire,,,Location + WandTipOffset);
+
+		if (ForcedSpell != None)
+		{
+			FiredSpell = Spawn(ForcedSpell,,,Location + WandTipOffset);
+		}
+		else
+		{
+			FiredSpell = Spawn(CurrentSpell,,,Location + WandTipOffset);
+		}
+		
 		FiredSpell.TargetActor = CurrentTarget;
+		FiredSpell.FinalCharge = FClamp(ChargeLevel,FiredSpell.MinCharge,FiredSpell.MaxCharge);
 	}
 }
 
