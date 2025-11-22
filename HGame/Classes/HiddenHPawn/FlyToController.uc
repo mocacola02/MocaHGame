@@ -2,25 +2,16 @@
 // FlyToController.
 //================================================================================
 
-class FlyToController extends HiddenHPawn;
+class FlyToController extends HActor;
 
 var bool bEnabled;
-var HPawn H;
-
-function PostBeginPlay()
-{
-	Super.PostBeginPlay();
-	if ( Owner != None )
-	{
-		Owner.TickParent = self;
-	}
-}
+var HPawn FlyActor;
 
 function EnableController()
 {
 	bEnabled = True;
-	H = HPawn(Owner);
-	GotoState('DoingTheFlyTo');
+	FlyActor = HPawn(Owner);
+	GotoState('FlyingTo');
 }
 
 function DisableController()
@@ -29,47 +20,42 @@ function DisableController()
 	GotoState('stateIdle');
 }
 
-auto state DoingTheFlyTo
+state FlyingTo
 {
-	event Tick (float dtime)
+	event Tick (float DeltaTime)
 	{
-		local float f;
-		local Vector vDest;
 		local bool bGotToEnd;
-  
-		if (  !bEnabled )
+		local float f;
+		local Vector DestLocation;
+
+		if ( FlyActor == None )
 		{
+			Print("ERROR! I don't have a FlyActor, destroying!",true);
+			Destroy();
 			return;
 		}
-		if ( H == None )
+
+		if ( FlyActor.FlyToTime < FlyActor.FlyToTimespan )
 		{
-			return;
+			FlyActor.FlyToTime += DeltaTime;
 		}
-		if ( H.fFlyToTime < H.fFlyToTimeSpan )
+
+		DestLocation = GetDestLocation();
+
+		if ( FlyActor.FlyToTimespan == 0 )
 		{
-			H.fFlyToTime += dtime;
-			if ( H.fFlyToTime > H.fFlyToTimeSpan )
-			{
-				bGotToEnd = True;
-				H.fFlyToTime = H.fFlyToTimeSpan;
-			}
-		}
-		vDest = GetVDest();
-		if ( H.fFlyToTimeSpan == 0 )
-		{
-			H.SetLocation(vDest);
+			FlyActor.SetLocation(DestLocation);
 		} 
 		else 
 		{
-			H.SetLocation(H.vFlyToStart + (vDest - H.vFlyToStart) * EaseFunction(H.fFlyToTime / H.fFlyToTimeSpan,H.eFlyMoveType));
+			FlyActor.SetLocation(FlyActor.vFlyToStart + (DestLocation - FlyActor.vFlyToStart) * EaseMovement(FlyActor.fFlyToTime / FlyActor.fFlyToTimeSpan,FlyActor.eFlyMoveType));
 		}
-		if ( H.fFlyToTime == H.fFlyToTimeSpan )
+
+		if ( FlyActor.FlyToTime > FlyActor.FlyToTimespan )
 		{
-			if ( bGotToEnd )
-			{
-				H.OnFlyToDone();
-			}
-			if (  !H.bFlyToStayLockedToActor )
+			FlyActor.OnFlyToDone();
+
+			if ( !FlyActor.bFlyToStopAtEnd )
 			{
 				bEnabled = False;
 			}
@@ -78,33 +64,33 @@ auto state DoingTheFlyTo
   
 }
 
-function Vector GetVDest()
+function Vector GetDestLocation()
 {
-	local Vector vDest;
+	local Vector DestLocation;
 
-	if ( H.aFlyToActor != None )
+	if ( FlyActor.FlyToActor != None )
 	{
-		vDest = H.aFlyToActor.Location;
-		if ( H.bFlyToFixedToDestActor )
+		DestLocation = FlyActor.FlyToActor.Location;
+
+		if ( FlyActor.bFlyToFixedToDestActor )
 		{
-			vDest += H.vFlyToDestOffset;
+			DestLocation += FlyActor.FlyToDestOffset;
 		} 
 		else 
 		{
-			vDest += H.vFlyToDestOffset >> H.aFlyToActor.Rotation;
+			DestLocation += FlyActor.FlyToDestOffset >> FlyActor.FlyToActor.Rotation;
 		}
-	} 
+	}
 	else 
 	{
-		vDest = H.vFlyToDest;
+		DestLocation = FlyActor.FlyToDest;
 	}
-	return vDest;
+
+	return DestLocation;
 }
 
 defaultproperties
 {
     bHidden=False
-
     DrawType=DT_None
-
 }
