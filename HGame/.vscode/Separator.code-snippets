@@ -25,5 +25,18 @@
 			"//-------------------------------------"
 		],
 		"description": "Create a comment separator."
+	},
+
+	"Class Header": {
+		"scope": "unrealscript",
+		"prefix": "header",
+		"body": [
+			"//==========================================", 
+			"//",
+			"//",
+			"//",
+			"//=========================================="
+		],
+		"description": "Create a class header."
 	}
 }
