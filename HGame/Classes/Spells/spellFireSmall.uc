@@ -12,7 +12,6 @@ var float GlobalSpeed;
 var float fIncreaseHitTimeDistance;
 var float fHitTimeIncrement;
 var int iDamage;
-var Vector TargetActor.Location;
 var int iAccuracyMin;
 var int iAccuracyMax;
 var float GrenadeExplosionGravity;

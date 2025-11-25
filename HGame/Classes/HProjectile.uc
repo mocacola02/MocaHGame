@@ -1,5 +1,8 @@
 class HProjectile extends Projectile;
 
+var int MinAccuracy;
+var int MaxAccuracy;
+
 var harry PlayerHarry;
 
 event PostBeginPlay()

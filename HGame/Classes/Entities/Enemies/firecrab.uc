@@ -1,322 +1,518 @@
-//================================================================================
-// firecrab.
-//================================================================================
+//==========================================
+//
+//	Firecrab. Initially rewritten 11/25/2025
+//
+//==========================================
 
-class firecrab extends HChar;
+class Firecrab extends HEnemy;
 
-const BOOL_DEBUG_AI= false;
-var Vector vHome;
-var Vector vPush;
-var float fHighestZ;
-var bool bFalling;
-var Vector vMoveDir;
-var Rotator vMoveDirRot;
-var Sound WalkingSound;
-var Sound RoarSound;
-var Sound AttackSound;
-var float OldFlipendoXY;
-var float OldFlipendoZ;
-var() float TimeUntilNextFireDefault;
-var float TimeUntilNextFire;
-var() float fAttackRange;
-var() int iNumSpellHitsToFlipDefault;
-var int iNumSpellHitsToFlip;
-var() bool bFallDistanceCheck;
-var() float fTimeSpentOnBack;
-var float fTimeOnBack;
+// Attack
+var(EnemyAttack) class<HProjectile> ProjectileToFire;
 
-function PreBeginPlay()
+var(EnemyAttack) bool bNoCharge;
+
+var(EnemyAttack) float FireRange;
+var(EnemyAttack) float MinFireDelay;
+var(EnemyAttack) float MaxFireDelay;
+var(EnemyAttack) float ChargeDuration;
+
+var(EnemyAttack) int ShotsPerCharge;
+var(EnemyAttack) int MinAccuracy;
+var(EnemyAttack) int MaxAccuracy;
+
+var int CurrentShots;
+var float FireCooldown;
+var HProjectile FiredProjectile;
+
+// Flipped
+var(EnemyMovement) vector FallingRotationRate;
+var(EnemyMovement) float MinOnBackTime;
+var(EnemyMovement) float MaxOnBackTime;
+
+// Sounds
+var(EnemySound) bool bDoTheRoar;
+var(EnemySound) Sound RoarSound;
+var(EnemySound) Sound PreAttackSound;
+var(EnemySound) Sound AttackSound;
+var(EnemySound) Sound HitSound;
+var(EnemySound) Sound HurtSound;
+var(EnemySound) Sound FlipSound;
+var(EnemySound) Sound LandSound;
+
+// Falling
+var bool bSpeen;
+
+
+//-------------------------------------
+// Events
+//-------------------------------------
+event PostBeginPlay()
 {
-  Super.PreBeginPlay();
-  if ( (DrawScale != Default.DrawScale) && self.IsA('firecrabLarge') )
-  {
-    SetCollisionSize(Default.CollisionRadius * DrawScale / Default.DrawScale,Default.CollisionHeight * DrawScale / Default.DrawScale);
-  }
-  AmbientSound = WalkingSound;
+	Super.PostBeginPlay();
+	DefaultRotRate = RotationRate;
 }
 
-function PostBeginPlay()
+event Landed (Vector HitNormal)
 {
-  Super.PostBeginPlay();
-  // SetPhysics(1);
-  SetPhysics(PHYS_Walking);
-  LoopAnim('Idle');
-  vHome = Location;
-  TimeUntilNextFire = TimeUntilNextFireDefault;
-  iNumSpellHitsToFlip = iNumSpellHitsToFlipDefault;
-  fHighestZ = Location.Z;
-  fTimeOnBack = fTimeSpentOnBack;
+	Super.Landed(HitNormal);
+
+	if ( (FallDistance > 25) )
+	{
+		Print("Fall distance greater than 25. Stay Flipped");
+		PlayLandSound();
+		GotoState('stateStayFlipped');
+	}
+
+	Print("How far did I fall : " $ string(FallDistance));
 }
 
-function playHitSound()
+// DELETEME if unneeded
+/* event Trigger (Actor Other, Pawn EventInstigator)
 {
-  local Sound HitSound;
-  local Sound hardHitSound;
-  local int randNum;
+	if ( Other == self )
+	{
+		GotoState('stateStayFlipped');
+	}
+} */
 
-  randNum = Rand(3);
-  switch (randNum)
-  {
-    case 0:
-    HitSound = Sound'firecrab_ouch_A';
-    break;
-    case 1:
-    HitSound = Sound'firecrab_ouch_B';
-    break;
-    case 2:
-    HitSound = Sound'firecrab_ouch_C';
-    break;
-    default:
-  }
-  PlaySound(HitSound,SLOT_None,RandRange(0.6,1.0),,10000.0,RandRange(0.80,1.20),,False);
-  hardHitSound = Sound'firecrab_hit';
-  PlaySound(hardHitSound,SLOT_None,RandRange(0.6,1.0),,10000.0,RandRange(0.80,1.20),,False);
+//-------------------------------------
+// Audio
+//-------------------------------------
+function PlayHitSound()
+{
+	if ( PushedSound != None )
+	{
+		PlaySound(PushedSound, SLOT_Interact,RandRange(0.75,1.0), [Pitch] RandRange(0.8,1.2));
+	}
+
+	if ( HurtSound != None )
+	{
+		PlaySound(PushedSound, SLOT_Talk,RandRange(0.75,1.0), [Pitch] RandRange(0.8,1.2));
+	}
 }
 
-function playFlipSound()
+function PlayFlipSound()
 {
-  local Sound flipSound;
-  local int randNum;
-
-  randNum = Rand(2);
-  switch (randNum)
-  {
-    case 0:
-    flipSound = Sound'firecrab_ss_fcb_turn_01E';
-    break;
-    case 1:
-    flipSound = Sound'firecrab_ss_fcb_turn_01E';
-    break;
-    default:
-  }
-  PlaySound(flipSound,SLOT_None,RandRange(0.8,1.0),,10000.0,RandRange(0.80,1.20),,False);
+	if ( FlipSound != None )
+	{
+		PlaySound(FlipSound, SLOT_Interact,RandRange(0.75,1.0), [Pitch] RandRange(0.8,1.2));
+	}
 }
 
-event TakeDamage (int Damage, Pawn EventInstigator, Vector HitLocation, Vector Momentum, name DamageType)
+function PlayLandSound()
 {
-  if ( DamageType == 'ZonePain' )
-  {
-    Destroy();
-  }
+	if ( LandSound != None )
+	{
+		PlaySound(LandSound, SLOT_Interact,RandRange(0.75,1.0), [Pitch] RandRange(0.8,1.2));
+	}
 }
 
-function PlayerCutCapture()
+function PlayRoarSound()
 {
-  //if (  !IsInState('stayFlipped') )
-  if (  !IsInState('stayFlipped') &&  !IsInState('DoFlip') ) //AdamJD:	From the demo/s
-  {
-    GotoState('CutIdle');
-  }
+	if ( RoarSound != None )
+	{
+		PlaySound(RoarSound, SLOT_Talk,RandRange(0.75,1.0), [Pitch] RandRange(0.8,1.2));
+	}
 }
 
-state CutIdle
+function PlayPreAttackSound()
 {
-begin:
-  TimeUntilNextFire = 1410065408.0;
-  GotoState('patrol');
+	if ( PreAttackSound != None )
+	{
+		PlaySound(PreAttackSound, SLOT_Interact,RandRange(0.75,1.0), [Pitch] RandRange(0.8,1.2));
+	}
 }
 
-function PlayerCutRelease()
+function PlayAttackSound()
 {
-  TimeUntilNextFire = TimeUntilNextFireDefault;
-  // eVulnerableToSpell = 22;
-  eVulnerableToSpell = SPELL_Rictusempra;
+	if ( AttackSound != None )
+	{
+		PlaySound(AttackSound, SLOT_Interact,RandRange(0.75,1.0), [Pitch] RandRange(0.8,1.2));
+	}
 }
 
-function bool OnALedge (Vector Loc)
+//-------------------------------------
+// Interaction
+//-------------------------------------
+
+function class<baseSpell> GetInteractionSpell(eInteraction InteractionType)
 {
-  local Vector vLocation;
-  local Vector vUnderLocation;
+	local int i;
 
-  vLocation = Loc;
-  vUnderLocation = vLocation;
-  vUnderLocation = vUnderLocation + Vec(0.0,0.0,-35.0);
-  if ( FastTrace(vUnderLocation,vLocation) )
-  {
-    return True;
-  }
-  return False;
-}
+	if ( SpellInteractions.Length <= 0 )
+	{
+		return MapDefault.SpellVulnerableTo;
+	}
 
-function Vector pushDirection()
-{
-  local float fRotation[16];
-  local int Count;
-  local int rotationCount;
-  local Rotator Facing;
-  local Vector tempLocation;
-  local Vector tempCollision;
-  //local int Index;
-  local int iIndex;
+	for ( i = 0; i < SpellInteractions.Length; i++ )
+	{
+		if ( SpellInteractions[i].SpellInteraction == InteractionType )
+		{
+			return SpellInteractions[i].SpellClass;
+		}
+	}
 
-  Facing = rotator(PlayerHarry.Location - Location);
-  // Count = 1;
-  // if ( Count <= 16 )
-  for(Count = 1; Count <= 16; Count++)
-  {
-    Facing.Yaw = 65536 / 16 * Count;
-    tempLocation = Location + (vector(Facing) * CollisionRadius);
-    if (  !OnALedge(tempLocation) )
-    {
-      fRotation[rotationCount] = (65536.0 / 16) * Count;
-      rotationCount++;
-    }
-    // Count++;
-    // goto JL0023;
-  }
-  for (Count = 0; Count < rotationCount; Count++)
-  {
-    //KW left this empty? -AdamJD
-  }
-  if ( rotationCount <= 2 )
-  {
-    return Vec(0.0,0.0,-1.0);
-  } else //{
-    if ( rotationCount <= 9 )
-    {
-      iIndex = rotationCount / 2;
-      Facing = rotator(PlayerHarry.Location - Location);
-      Facing.Yaw = fRotation[iIndex];
-	  tempLocation = Location + (vector(Facing) * CollisionRadius);
-      return Normal(Location - tempLocation);
-    } else {
-      return Vec(0.0,0.0,0.0);
-    }
-  //}
-}
-
-static function Vector GetFacing (Actor A)
-{
-  return Vec(1.0,0.0,0.0) >> A.Rotation;
-}
-
-function Landed (Vector HitNormal)
-{
-  local float fFallDistanceZ;
-
-  Super.Landed(HitNormal);
-  if ( (DrawScale != Default.DrawScale) && self.IsA('firecrabLarge') )
-  {
-    SetCollisionSize(Default.CollisionRadius * DrawScale / Default.DrawScale,Default.CollisionHeight * DrawScale / Default.DrawScale);
-  }
-  fFallDistanceZ = fHighestZ - Location.Z;
-  if ( (fFallDistanceZ > 25) && (bFallDistanceCheck == True) )
-  {
-    cm("Fall distance greater than 25. Stay Flipped");
-    GotoState('stayFlipped');
-  }
-  PlayerHarry.ClientMessage("How far did the firecrab fall : " $ string(fFallDistanceZ));
-}
-
-function Falling()
-{
-  Super.Falling();
-  if ( BOOL_DEBUG_AI )
-  {
-    PlayerHarry.ClientMessage("I'm falling and I can't get up ");
-  }
+	return MapDefault.SpellVulnerableTo;
 }
 
 function HitByThrownObject (int Damage, HPawn InstigatedBy, Vector HitLocation, Vector Momentum, name ObjectType)
 {
-  fTimeOnBack = fTimeSpentOnBack * 4;
-  iNumSpellHitsToFlip = 1;
-  HandleSpellRictusempra(None,HitLocation);
+	CurrentSpellHitCount = 0.0;
+	CurrentPushDirection = GetPushDirection(HitLocation,Momentum);
+	GotoState('statePushed');
 }
 
-function Trigger (Actor Other, Pawn EventInstigator)
+
+//-------------------------------------
+// Falling
+//-------------------------------------
+function EnableSpeen()
 {
-  if ( Other == self )
-  {
-    GotoState('stayFlipped');
-  }
+	bRotateToDesired = False;
+
+	Rotation.Roll += NINETY_DEG;
+
+	LoopAnim('onback');
+
+	RotationRate = FallingRotationRate;
+	bFixedRotationDir = True;
 }
 
-state stateIdle
+function DisableSpeen()
 {
-begin:
-  AmbientSound = None;
-  LoopAnim('Idle');
+	RotationRate = MapDefault.RotationRate;
+	bFixedRotationDir = MapDefault.bFixedRotationDir;
+	bRotateToDesired = MapDefault.bRotateToDesired;
+	GotoState('stateFlipped');
 }
 
-state FallOverLedge
+function Vector GetLedgePushDir()
 {
-  function BeginState()
-  {
-    cm("Entered state FallOverLedge");
-    fHighestZ = Location.Z;
-    LoopAnim('onback');
-    if ( bFalling == True )
+    local Vector OutDir;
+	local Vector End;
+	local Vector HitLocation;
+	local Vector HitNormal;
+
+    OutDir = GetForwardVector();
+    End = Location + OutDir * 50;
+
+    if ( !FastTrace(End + vect(0,0,-50), End) )
     {
-      if ( OnALedge(Location) )
-      {
-        vPush = pushDirection();
-      }
+        HitLocation = End;
+        return GetPushDirection(HitLocation);
     }
-    bFalling = True;
-  }
-  
-  function HitWall (Vector HitNormal, Actor Wall)
-  {
-    Super.HitWall(HitNormal,Wall);
-    Acceleration = vect(0.00,0.00,0.00);
-    Velocity = vect(0.00,0.00,0.00);
-  }
-  
-  function Tick (float DeltaTime)
-  {
-    Super.Tick(DeltaTime);
-    MoveSmooth(vPush * (GroundSpeed * 3) * DeltaTime);
-  }
-  
-  begin:
+
+    return vect(0,0,0);
 }
 
-state stayFlipped
+state stateFalling
 {
-begin:
-  cm("Begun state StayFlipped");
-  // eVulnerableToSpell = 13;
-  eVulnerableToSpell = SPELL_Flipendo;
-  if ( self.IsA('firecrabSmall') )
-  {
-    fFlipPushForceXY = 0.5 * Default.fFlipPushForceXY;
-    fFlipPushForceZ = 0.4 * Default.fFlipPushForceZ;
-  }
-  if ( BOOL_DEBUG_AI )
-  {
-    PlayerHarry.ClientMessage(string(Name) $ " : State StayFlipped ");
-  }
-  TimeUntilNextFire = 999999.0;
-  LoopAnim('onback');
-  
-onBackloop: //UTPT didn't add this state label for some reason -AdamJD
-  TimeUntilNextFire = 999999.0;
-  Sleep(1.0);
-  goto ('onBackloop');
+	event BeginState()
+	{
+		HighestZ = Location.Z;
+		EnableSpeen();
+		DisableAttack();
+	}
+
+	event HitWall (Vector HitNormal, Actor Wall)
+	{
+		Super.HitWall(HitNormal,Wall);
+		Acceleration = vect(0,0,0);
+		Velocity = vect(0,0,0);
+	}
 }
+
+//-------------------------------------
+// Flipped States
+//-------------------------------------
+state stateStunned
+{
+	event BeginState()
+	{
+		DisableAttack();
+	}
+
+	begin:
+		SetVulnerableSpell(GetInteractionSpell(INT_Push));
+		
+		PlayHitSound();
+
+		if ( PushedAnim != '' )
+		{
+			PlayAnim(PushedAnim);
+		}
+
+		if ( OnALedge(Location) )
+		{
+			GotoState('stateFallOverLedge');
+		}
+		else
+		{
+			FinishAnim();
+			PlayLandSound();
+			GotoState('stateFlipped');
+		}
+}
+
+state statePushed
+{
+	event BeginState()
+	{
+		DisableAttack();
+	}
+
+	begin:
+		Acceleration = CurrentPushDirection;
+		Velocity = CurrentPushDirection;
+
+		PlayHitSound();
+
+		if ( PushedAnim != '' )
+		{
+			PlayAnim(PushedAnim);
+			FinishAnim();
+			PlayLandSound();
+		}
+		else
+		{
+			Sleep(1.0);
+		}
+
+		if ( OnALedge(Location) )
+		{
+			GotoState('stateFallOverLedge');
+		}
+		else
+		{
+			GotoState('stateFlipped');
+		}
+}
+
+state stateFallOverLedge
+{
+	event BeginState()
+	{
+		DisableAttack();
+	}
+
+	event Tick(float DeltaTime)
+	{
+		Global.Tick(DeltaTime);
+
+		if ( Physics == PHYS_Falling )
+		{
+			GotoState('stateFalling');
+		}
+
+		MoveSmooth(GetLedgePushDir() * DeltaTime * 2);
+	}
+}
+
+state stateStayFlipped
+{
+	begin:
+		DisableAttack();
+		SetVulnerableSpell(GetInteractionSpell(INT_Push));
+		LoopAnim('onback');
+}
+
+state stateUnflip
+{
+	begin:
+		SetVulnerableSpell(GetInteractionSpell(INT_Stun));
+
+		PlayAnim('recover');
+
+		while ( AnimFrame < 0.74 )
+		{
+			SleepForTick();
+		}
+
+		PlayLandSound();
+
+		FinishAnim();
+		PlayAnim('look');
+		FinishAnim();
+		EnableAttack();
+		GotoState('statePatrol');
+}
+
+//-------------------------------------
+// Attack
+//-------------------------------------
+function ProcessAttack()
+{
+	if ( bIsHuntingHarry && CanAttack() && CanSeeHarry(0.25) && Physics == PHYS_Walking )
+	{
+		DoAttack();
+	}
+}
+
+function DoAttack()
+{
+	GotoState('stateAlerted');
+}
+
+function AimBooty()
+{
+	SetRotation(GetBootyDirection(true));
+}
+
+function GetBootyDirection(optional bool bYawOnly)
+{
+	local rotator NewRot;
+	NewRot = rotator(GetDirectionAwayFromActor(HatedTarget));
+
+	if ( bYawOnly )
+	{
+		NewRot.Pitch = 0;
+		NewRot.Roll = 0;
+	}
+
+	return NewRot;
+}
+
+state stateAlerted
+{
+	begin:
+		StopMoving();
+
+		if ( bDoTheRoar )
+		{
+			PlayRoarSound();
+			PlayAnim('roar');
+			FinishAnim();
+		}
+
+		GotoState('stateAiming');
+}
+
+state stateAiming
+{
+	event BeginState()
+	{
+		if ( bNoCharge )
+		{
+			GotoState('stateFire');
+		}
+	}
+
+	event Tick(float DeltaTime)
+	{
+		AimBooty();
+	}
+
+	begin:
+		PlayPreattackSound();
+		PlayAnim('preattack');
+
+		if ( ChargeDuration == 0 )
+		{
+			FinishAnim();
+		}
+		else
+		{
+			Sleep(ChargeDuration);
+		}
+
+		if ( CanSeeHarry(0.25) )
+		{
+			GotoState('stateFire');
+		}
+}
+
+state stateFire
+{
+	function FireWeapon()
+	{
+		PlayAnim('Attack');
+		CurrentShots++;
+		FiredProjectile = Spawn(ProjectileToFire);
+		FiredProjectile.MinAccuracy = MinAccuracy;
+		FiredProjectile.MaxAccuracy = MaxAccuracy;
+		FiredProjectile.TargetActor = HatedTarget;
+	}
+
+	begin:
+		AimBooty();
+
+		FireWeapon();
+
+		FireCooldown = RandRange(MinFireDelay,MaxFireDelay);
+
+		if ( FireCooldown <= 0.0001 )
+		{
+			FinishAnim();
+		}
+		else
+		{
+			Sleep(FireCooldown);
+		}
+
+		if ( CurrentShots > ShotsPerCharge )
+		{
+			CurrentShots = 0;
+
+			if ( CanSeeHarry(0.25) )
+			{
+				if ( bCanStrafe )
+				{
+					GotoState('stateStrafe');
+				}
+
+				GotoState('stateAiming');
+			}
+			
+			GotoState('statePatrol');
+		}
+
+		Goto('begin');
+}
+
+state stateStrafe
+{
+
+}
+
+//-------------------------------------
+// Cutscene
+//-------------------------------------
+
+state stateCutCapture
+{
+	event BeginState()
+	{
+		GotoState('statePatrol');
+	}
+}
+
+
+
 
 defaultproperties
 {
     RoarSound=Sound'HPSounds.Critters_sfx.firecrab_roar'
-
     AttackSound=Sound'HPSounds.Critters_sfx.firecrab_attack'
+	HurtSound=Sound'HPSounds.Critters_sfx.firecrab_ouch_multi'
 
-    TimeUntilNextFireDefault=2.00
+	ProjectileToFire=class'spellFireSmall'
+    FireRange=400.00
+	MinFireDelay=0.5
+	MaxFireDelay=1.25
 
-    fAttackRange=400.00
+	SpellInteractions(0)=(SpellClass=Class'spellRictusempra',SpellInteraction=INT_Stun)
+	SpellInteractions(1)=(SpellClass=Class'spellFlipendo',SpellInteraction=INT_Push)
 
-    iNumSpellHitsToFlip=2
+	PushedAnim=flip2back
+	PushedSound=Sound'HPSounds.Critters_sfx.firecrab_hit'
+	FlipSound=Sound'HPSounds.Critters_sfx.firecrab_unflip_multi'
+	LandSound=Sound'HPSounds.Critters_sfx.SPI_large_LandOnBack'
 
-    bFallDistanceCheck=True
+	FootstepSoundSet=class'FootstepFirecrab'
+	StepDistance=8.0
+	StepThreshold=4.0
 
-    fTimeSpentOnBack=5.00
-
-    fFlipPushForceXY=260.00
-
-    fFlipPushForceZ=100.00
-
-    bThrownObjectDamage=True
+	bAffectedByCarriedActor=True
 
     GroundSpeed=60.00
 
@@ -336,10 +532,11 @@ defaultproperties
 
     RunAnimName=Walk
 
-    // eVulnerableToSpell=22
-	eVulnerableToSpell=SPELL_Rictusempra
+    SpellVulnerableTo=class'spellRictusempra'
 
     Mesh=SkeletalMesh'HPModels.skfirecrabMesh'
+
+	TransientSoundRadius=10000
 
     DrawScale=2.00
 
@@ -348,4 +545,6 @@ defaultproperties
     Mass=130.00
 
     RotationRate=(Pitch=100000,Yaw=100000,Roll=100000)
+
+	FallingRotationRate=(Pitch=2500,Yaw=5000,Roll=4000)
 }

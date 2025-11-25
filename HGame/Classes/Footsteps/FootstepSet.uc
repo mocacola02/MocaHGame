@@ -1,5 +1,8 @@
 class FootstepSet extends Info;
 
+var(Sounds) bool bUseGlobalSteps;
+
+var(Sounds) Array<Sound> GlobalSteps;
 var(Sounds) Array<Sound> StoneSteps;
 var(Sounds) Array<Sound> RugSteps;
 var(Sounds) Array<Sound> WoodSteps;

@@ -59,14 +59,7 @@ function ProcessSpell(class<baseSpell> HitSpell); // Define in child classes
 
 function name GetSpellName()
 {
-	if (SpellVulnerableTo.IsA('baseSpell'))
-	{
-		return baseSpell(SpellVulnerableTo).Default.SpellName;
-	}
-	else
-	{
-		return SpellVulnerableTo.Default.Name;
-	}
+	return baseSpell(SpellVulnerableTo).Default.Name;
 }
 
 function ResolveEVulnerableToSpell()

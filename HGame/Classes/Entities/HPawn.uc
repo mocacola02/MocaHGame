@@ -5,21 +5,24 @@
 //==========================================
 class HPawn extends Pawn;
 
+// Constants
+var const int NINETY_DEG;
+
 // Enemy Bar
-var Texture EnemyBarBaseTexture;	// Moca: Base texture for enemy health bar
-var Texture EnemyBarFullTexture;	// Moca: Full texture for enemy health bar
-var Texture EnemyBarEmptyTexture;	// Moca: Empty texture for enemy health bar
+var Texture EnemyBarBaseTexture;							// Moca: Base texture for enemy health bar
+var Texture EnemyBarFullTexture;							// Moca: Full texture for enemy health bar
+var Texture EnemyBarEmptyTexture;							// Moca: Empty texture for enemy health bar
 
 // Magic
-
-// Interaction system subject to change.
 enum eInteraction
 {
-	INT_Push,		// Moca: Get pushed by spell
-	INT_Pull,		// Moca: Get pulled by spell
-	INT_Lift,		// Moca: Get lifted by spell
-	INT_Lower,		// Moca: Get lowered by spell
-	INT_Custom,		// Moca: INT_Custom will use a custom behavior function defined in a child class of HPawn.
+	INT_Push,												// Moca: Get pushed by spell
+	INT_Pull,												// Moca: Get pulled by spell
+	INT_Lift,												// Moca: Get lifted by spell
+	INT_Lower,												// Moca: Get lowered by spell
+	INT_Damage,												// Moca: Take damage from spell
+	INT_Stun,												// Moca: Be stunned from spell (eg. Mimblewimble)
+	INT_Custom,												// Moca: INT_Custom will use a custom behavior function defined in a child class of HPawn.
 };
 
 struct MagicInteraction
@@ -29,10 +32,15 @@ struct MagicInteraction
 };
 
 var(Spells) array<MagicInteraction> SpellInteractions;		// Moca: List of spell interaction mappings. Empty by default, which makes all spells use INT_Custom (aka a custom spell response function)
-var int SpellHitCount;										// Moca: How many times the Pawn has been hit with a spell it's vulnerable to
+var(Spells) int RequiredSpellHits;
+var int CurrentSpellHitCount;								// Moca: How many times the Pawn has been hit with a spell it's vulnerable to
+var int TotalSpellHitCount;
 
-var float PushForceXY;										// Moca: How much does this Pawn get pushed horizontally if INT_Push
-var float PushForceZ;										// Moca: How much does this Pawn get pushed vertically if INT_Push
+var(Spells) float PushForce;								// Moca: How much does this Pawn get pushed if INT_Push
+var(Spells) float PushMomentumInfluence;					// Moca: How much of the momentum from the actor that pushed us is applied to our push movement? 1.0 = Full momentum, 0.5 = half, etc.
+var(Spells) Sound PushedSound;								// Moca: Sound to play when pushed
+var(Spells) name PushedAnim;								// Moca: Animation to play when pushed
+var vector CurrentPushDirection;
 
 // Player Tracking
 var Vector PlayerLastLocation;								// Moca: Last location this Pawn saw Harry at
@@ -62,9 +70,9 @@ var(Stealth) array<name> AnimStealthCaught;					// Moca: List of possible animat
 
 var(Stealth) name PostStealthState;							// Moca: What state to go to after stealth? If blank, uses previous state.
 
-var(Stealth) array<Sound> FirstSpotSounds;					// Moca: Possible sounds to play the first time Harry is spotted
-var(Stealth) array<Sound> FollowUpSpotSounds;				// Moca: Possible sounds to play on additional spots
-var(Stealth) array<Sound> LostHarrySounds;					// Moca: Possible sounds to play after losing Harry
+var(Stealth) Sound FirstSpotSound;							// Moca: Possible sounds to play the first time Harry is spotted
+var(Stealth) Sound FollowUpSpotSound;						// Moca: Possible sounds to play on additional spots
+var(Stealth) Sound LostHarrySound;							// Moca: Possible sounds to play after losing Harry
 
 // Shadows
 var(Display) class<ActorShadow> ShadowClass;				// Moca: Shadow class to spawn as the Pawn's shadow
@@ -73,6 +81,7 @@ var(Display) float ShadowScale;								// Moca: Size of the shadow
 // Animation
 var(Display) array<name> IdleAnimations;					// Moca: List of Idle animations
 var(Display) array<name> FidgetAnimations;					// Moca: List of Fidget animations
+var(Display) bool bPlayIdleOnPlay;							// Moca: Should this Pawn play an Idle animation on BeginPlay?
 
 var(Display) bool bFidget;									// Moca: Should this Pawn fidget periodically?
 var(Display) float FidgetDelayMin;							// Moca: Minimum fidget delay
@@ -114,12 +123,20 @@ var rotator PreBumpRot;										// Moca: This Pawn's rotation before BumpLine
 var(Carry) bool bCanPickupObjects;							// Moca: Can this Pawn pick up objects?
 var(Carry) array<class> AllowedPickupClasses;				// Moca: What classes can this Pawn pick up?
 
+var(Carry) bool bAffectedByCarriedActors;					// Moca: Is this Pawn affected by carried actors that have been thrown at it?
+
 // Despawn
 var() bool bDespawnable;									// Moca: Can this Pawn be despawned by a Despawner?
 var bool bPendingDespawn;									// Moca: Is this Pawn pending a despawn
 
 // Movement
 var float RunThreshold;										// Moca: Threshold based off of GroundRunSpeed in which Pawn will determine if it's running
+var float HighestZ;											// Moca: Highest Location Z value this Pawn has reached
+var float FallDistance;										// Moca: How much did we fall?
+
+var Vector HomeLocation;									// Moca: This Pawn's "home" location, aka where it spawned (if not manually set otherwise)
+
+var ePhysics LastTickPhys;									// Moca: This Pawn's Physics state from the previous tick
 
 // Navigation & Patrol
 var NavigationPoint FirstNavP;								// Moca: First NavP we went to (aka home NavP)
@@ -161,9 +178,14 @@ var name PreCaptureState;									// Moca: What state was this Pawn in before Ca
 
 // Audio
 var(Sounds) class<FootstepSet> FootstepSoundSet;			// Moca: FootstepSet to use for this Pawn
+var(Sounds) float FootstepFrequency;						// Moca: How frequently to play footstep sounds. 2.0 = twice as often, 0.5 = half as often,  etc.
+var float StepAccumulator;
+var float StepDistance;
+var float StepThreshold;
+
 var array<Sound> LastFootstepSounds;						// Moca: Previous played footstep(s)
 
-var array<Sound> FallingSounds;								// Moca: Falling sounds this Pawn can play when falling
+var Sound FallingSound;										// Moca: Falling sounds this Pawn can play when falling
 var Sound SelectedFallingSound;								// Moca: What falling sound have we played
 
 // Misc
@@ -202,6 +224,22 @@ event PostBeginPlay()
 	PlayerCam = PlayerHarry.Cam;
 
 	SetTimer(1.0,True);
+
+	HomeLocation = Location;
+	HighestZ = Location.Z;
+
+	if ( IdleAnimations.Length > 0 && IdleAnimName != '' )
+	{
+		IdleAnimations.Append(IdleAnimName);
+	}
+
+	if ( bPlayIdleOnPlay )
+	{
+		if ( IdleAnimations.Length > 0 )
+		{
+			LoopAnim(IdleAnimations[Rand(IdleAnimations.Length)]);
+		}
+	}
 }
 
 //-------------------------------------
@@ -231,17 +269,41 @@ event Tick(float DeltaTime)
 			CurrentSuspicion = FClamp(CurrentSuspicion, 0.0, MaxSuspicion);
 		}
 	}
+
+	if ( Physics = PHYS_Walking && FootstepSoundSet != None )
+	{
+		DoFootstep();
+	}
+
+	if ( Physics == PHYS_Falling )
+	{
+		if ( LastTickPhys != PHYS_Falling )
+		{
+			HighestZ = Location.Z;
+		}
+		else if ( HighestZ < Location.Z )
+		{
+			HighestZ = Location.Z;
+		}
+	}
+
+	if ( LastTickPhys != Physics )
+	{
+		LastTickPhys = Physics;
+	}
 }
 
 event Falling()
 {
 	Super.Falling();
-
+	
 	HandleFallSound();
 }
 
 event Landed()
 {
+	FallDistance = HighestZ - Location.Z;
+
 	if ( SelectedFallingSound != None )
 	{
 		StopSound(SelectedFallingSound, SLOT_Talk);
@@ -253,8 +315,18 @@ event TakeDamage(int Damage, Pawn EventInstigator, vector HitLocation, vector Mo
 {
 	if  (DamageType == GetSpellName() )
 	{
-		SpellHitCount++;
-		ProcessSpell();
+		TotalSpellHitCount++;
+		CurrentSpellHitCount++;
+
+		if ( CurrentSpellHitCount >= RequiredSpellHits )
+		{
+			CurrentSpellHitCount = 0;
+			DetermineSpellOutcome(Damage,EventInstigator,HitLocation,Momentum,GetSpellName());
+		}
+		else
+		{
+			Print("Hit by spell " $ DamageType $ ", we have " $ string(RequiredSpellHits - CurrentSpellHitCount) $ " hits left until we react to the spell");
+		}
 	}
 	else if ( (DamageType == 'ZonePain') &&  !bIgnoreZonePainDamage )
 	{
@@ -292,17 +364,127 @@ event Destroyed()
 //-------------------------------------
 function name GetSpellName()
 {
-	if (SpellVulnerableTo.IsA('baseSpell'))
+	return baseSpell(SpellVulnerableTo).Default.Name;
+}
+
+function DetermineSpellOutcome(int Damage, Pawn EventInstigator, vector HitLocation, vector Momentum, name DamageType)
+{
+	local int i;
+	local eInteraction SelectedInteraction;
+	local class<baseSpell> HitSpellClass;
+
+	Print("Determining spell outcome for spell " $ DamageType);
+
+	SelectedInteraction = INT_Custom;
+	HitSpellClass = GetSpellClassByName(DamageType);
+
+	if ( SpellInteractions.Length > 0 )
 	{
-		return baseSpell(SpellVulnerableTo).Default.SpellName;
+		for ( i = 0; i < SpellInteractions.Length; i++ )
+		{
+			if ( SpellInteractions[i].SpellClass == HitSpellClass )
+			{
+				print("Spell class " $ HitSpellClass $ " ")
+				SelectedInteraction = SpellInteractions[i].SpellInteraction;
+				break;
+			}
+		}
+
+		if ( SelectedInteraction != INT_Custom )
+		{
+			switch(SelectedInteraction)
+			{
+				case INT_Push:	InteractionPushed(HitLocation,Momentum); break;
+				case INT_Pull:	InteractionPulled(HitLocation,Momentum); break;
+				case INT_Lift:	InteractionLifted(); break;
+				case INT_Lower:	InteractionLowered(); break;
+				case INT_Damage:InteractionDamaged(Damage); break;
+				case INT_Stun:	InteractionStunned(); break;
+				default: break;
+			}
+		}
 	}
-	else
+
+	ProcessSpell();
+}
+
+function class<baseSpell> GetSpellClassByName(name SpellName)
+{
+	if ( SpellName != '' )
 	{
-		return SpellVulnerableTo.Default.Name;
+		return class<baseSpell>(DynamicLoadObject(SpellName,class'baseSpell'));
 	}
+
+	return class'baseSpell';
+}
+
+function SetVulnerableSpell(class<baseSpell> NewSpell)
+{
+	Print("Setting vulnerable spell to " $ string(NewSpell));
+	SpellVulnerableTo = NewSpell;
 }
 
 function ProcessSpell(class<baseSpell> HitSpell); // Define in child classes
+
+//-------------------------------------
+// Magic Interactions
+//-------------------------------------
+function InteractionPushed(vector HitLocation, optional vector Momentum)
+{
+	CurrentPushDirection = GetPushDirection(HitLocation,Momentum);
+	GotoState('statePushed');
+}
+
+function InteractionPulled(vector HitLocation, optional vector Momentum);
+function InteractionLifted();
+function InteractionLowered();
+function InteractionDamaged(int Damage);
+
+function InteractionStunned()
+{
+	GotoState('stateStunned');
+}
+
+function Vector GetPushDirection(Vector HitLocation, optional vector Momentum)
+{
+	local Vector PushMomentum;
+
+	PushMomentum = Momentum * PushMomentumInfluence;
+
+	return Normal( Location - HitLocation ) * PushForce + PushMomentum;
+}
+
+state statePushed
+{
+	event BeginState()
+	{
+		if ( PushedAnim != '' )
+		{
+			PlayAnim(PushedAnim);
+		}
+
+		if ( PushedSound != None )
+		{
+			PlaySound(PushedSound);
+		}
+	}
+
+	begin:
+		Acceleration = CurrentPushDirection;
+		Velocity = CurrentPushDirection;
+
+		Sleep(1.0);
+
+		GotoState(LastValidState);
+}
+
+state stateStunned
+{
+	//Placeholder behavior. Should be defined in child classes.
+	begin:
+		Sleep(5.0);
+		GotoState(LastValidState);
+}
 
 //-------------------------------------
 // Bump
@@ -531,13 +713,40 @@ function float PlayDialog (string DialogID, optional string SectionName, optiona
 	return SoundLength;
 }
 
+function DoFootstep(float DeltaTime)
+{
+	local Vector Velocity2D;
+	local float CurrentSpeed;
+
+	Velocity2D = vect(Velocity.X, Velocity.Y, 0.0);
+	CurrentSpeed = VSize(Velocity2D);
+
+	if ( Speed > StepThreshold )
+	{
+		StepAccumulator += Speed * DeltaTime;
+
+		if ( StepAccumulator >= StepDistance )
+		{
+			PlayFootStep();
+			StepAccumulator -= StepDistance;
+		}
+	}
+	else
+	{
+		if ( StepAccumulator > 0.0 )
+		{
+			StepAccumulator = 0.0;
+		}
+	}
+}
+
 simulated function PlayFootStep(optional float Volume)
 {
 	local Sound Step;
 	local int Decision;
 	local Texture HitTexture;
 	local int Flags;
-	local array<Sound> Footsteps;
+	local Sound Footsteps;
 	local float NoiseLevel;
 
 	if (Volume <= 0)
@@ -562,6 +771,10 @@ simulated function PlayFootStep(optional float Volume)
 		Footsteps[0] = Sound'HAR_foot_ecto1';
 		Footsteps[1] = Sound'HAR_foot_ecto2';
 		Footsteps[2] = Sound'HAR_foot_ecto3';
+	}
+	else if ( FootstepSoundSet.bUseGlobalSteps )
+	{
+		Footsteps = FootstepSoundSet.GlobalSteps;
 	}
 	else
 	{
@@ -857,13 +1070,15 @@ function DoPickupObject(Actor Obj);		 //Define in child class
 function SelfGotPickedUp();				 //Define in child class
 function SelfGotThrown();				 //Define in child class
 
+function HitByThrownObject(int Damage, Pawn Instigator, vector HitLocation, vector Momentum, name ObjectType);
+
 function ThrownLanded(Vector HitNormal, optional name NextState)
 {
 	EnableCollision();
 
 	if ( NextState == '' )
 	{
-		NextState = LastStateName;
+		NextState = LastValidState;
 	}
 
 	GotoState(NextState);
@@ -929,23 +1144,23 @@ state stateChaseHarry
 
 		if ( PostStealthState == '' )
 		{
-			PostStealthState = LastStateName;
+			PostStealthState = LastValidState;
 		}
 
 		if ( StealthChaseCount > 0 )
 		{
-			i = Rand(FollowUpSpotSounds.Length);
-			if ( FollowUpSpotSounds[i] != None )
+			i = Rand(FollowUpSpotSound.Length);
+			if ( FollowUpSpotSound[i] != None )
 			{
-				PlaySound(FollowUpSpotSounds[i],SLOT_Talk);
+				PlaySound(FollowUpSpotSound[i],SLOT_Talk);
 			}
 		}
 		else
 		{
-			i = Rand(FirstSpotSounds.Length);
-			if ( FirstSpotSounds[i] != None )
+			i = Rand(FirstSpotSound.Length);
+			if ( FirstSpotSound[i] != None )
 			{
-				PlaySound(FirstSpotSounds[i],SLOT_Talk);
+				PlaySound(FirstSpotSound[i],SLOT_Talk);
 			}
 		}
 
@@ -2033,6 +2248,11 @@ function Vector GetActorXYLocation(Actor Other)
 	return vect(Other.Location.X, Other.Location.Y, Location.Z);
 }
 
+function Vector GetForwardVector()
+{
+	return Normal(Vector(Rotation));
+}
+
 function bool ShouldPlayIdleOnRelease()
 {
   	return True;
@@ -2041,6 +2261,22 @@ function bool ShouldPlayIdleOnRelease()
 function bool IsRunning()
 {
 	return GroundSpeed >= (GroundRunSpeed - RunThreshold);
+}
+
+function bool OnALedge(Vector Loc, optional float TraceLength)
+{
+	local Vector CurrentLocation;
+	local Vector UnderLocation;
+
+	if ( TraceLength == 0 )
+	{
+		TraceLength = -35.0;
+	}
+
+	CurrentLocation = Loc;
+	UnderLocation = CurrentLocation + Vec(0.0,0.0,-35.0);
+
+	return FastTrace(UnderLocation,CurrentLocation);
 }
 
 function float GetDistanceFromActor(Actor Other)
@@ -2072,6 +2308,26 @@ function DisableTurnTo()
 	bTurnTo_FollowActor = false;
 	TurnTo_TargetActor = None;
 	DestroyTurnToPermanentController();
+}
+
+function vector GetDirectionToActor(Actor Other)
+{
+	if ( Other == None )
+	{
+		return vect(0,0,0);
+	}
+
+	return Normal( Other.Location - Location );
+}
+
+function vector GetDirectionAwayFromActor(Actor Other)
+{
+	if ( Other == None )
+	{
+		return vect(0,0,0);
+	}
+
+	return Normal( Location - Other.Location );
 }
 
 function Timer()
@@ -2107,7 +2363,11 @@ function Print(string msg, optional bool BothLogs)
 //-------------------------------------
 // Misc. States
 //-------------------------------------
-auto state stateIdle {}
+auto state stateIdle
+{
+	begin:
+		LoopAnim('Idle');
+}
 
 state stateInfoPrint {}
 
@@ -2127,6 +2387,11 @@ state stateDestroy
 
 defaultproperties
 {
+	NINETY_DEG=16384
+
+	PushForce=260.0
+	RequiredSpellHits=1
+
 	bFollowUpSearch=True
 
 	MinStealthChaseDelay=1.0
@@ -2159,7 +2424,13 @@ defaultproperties
 	FlyMoveType=MOVE_TYPE_EASE_FROM_AND_TO
 	EaseBetweenLinearness=2.0
 
+	FootstepFrequency=1.0
 
+	IdleAnimations(0)=Idle
+	bPlayIdleOnPlay=True
+
+	StepDistance=50.0
+	StepThreshold=16.0
 
 	DrawType=DT_Mesh
 

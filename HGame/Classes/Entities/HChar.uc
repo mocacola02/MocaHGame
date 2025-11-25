@@ -1,10 +1,10 @@
 //==========================================
 //
-//	HPawn. Initially rewritten 11/24/2025
+//	HChar. Initially rewritten 11/24/2025
 //
 //==========================================
 
-class HChar extends HPerson;
+class HChar extends HPawn;
 
 auto state stateIdle
 {
