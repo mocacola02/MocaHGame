@@ -4,21 +4,6 @@
 
 class baseSpell extends HProjectile; 
 
-var class<ParticleFX> FlyingParticleFX;
-var class<ParticleFX> HitParticleFX;
-var class<ParticleFX> HitWallParticleFX;
-var class<ParticleFX> ReactParticleFX;
-var class<ParticleFX> ChargeParticleFX;
-var class<ParticleFX> MiscParticleFX;
-
-var ParticleFX FlyingParticles;
-var ParticleFX HitParticles;
-var ParticleFX HitWallParticles;
-var ParticleFX ReactParticles;
-var ParticleFX ChargeParticles;
-var ParticleFX MiscParticles;
-
-
 // Charge variables. Only the default values are used in baseWand
 var float ChargeSpeed; 			// Moca: How much charge to gain over a second Def: 1.0
 var float MinCharge;
@@ -35,7 +20,6 @@ var name SpellName;
 var Texture SpellIcon;
 var Texture SpellGesture;
 
-var Actor TargetActor;
 var baseWand SpellWand;
 
 
@@ -53,47 +37,12 @@ event PostBeginPlay()
 
 event Tick (float DeltaTime)
 {
-	if ( (LifeTime -= DeltaTime) < 0 )
-	{
-		OnSpellShutdown();
-		Destroy();
-	}
-
 	Seek(DeltaTime);
-}
-
-event HitWall (Vector HitNormal, Actor Wall)
-{
-	OnHitWall(Wall);
-	Destroy();
 }
 
 event Landed(vector HitNormal)
 {
 	HandleHit(Location,true);
-}
-
-event Destroyed()
-{
-	if (FlyingParticles != None)
-	{
-		FlyingParticles.Shutdown();
-	}
-
-	if (ReactParticles != None)
-	{
-		ReactParticles.Shutdown();
-	}
-
-	if (ChargeParticles != None)
-	{
-		ChargeParticles.Shutdown();
-	}
-
-	if (MiscParticles != None)
-	{
-		MiscParticles.Shutdown();
-	}
 }
 
 //-------------------------------------
@@ -125,28 +74,12 @@ function ProcessTouch(Actor Other, Vector HitLocation)
 	Other.TakeDamage(Damage,Instigator,Location,Velocity,SpellName);
 }
 
-function OnHitWall(Actor Wall)
+function HandleHit(Vector HitLocation)
 {
-	switch(Wall.Class)
-	{
-		case Class'GridMover': ProcessTouch(Wall,Location); break;
-		default: HandleHit(Location,true); break;
-	}
-}
+	HitParticles = Spawn(HitParticleFX,,,HitLocation);
+	PlaySound(ImpactSound);
 
-function HandleHit(Vector HitLocation, optional bool bHitWall)
-{
-	if (bHitWall)
-	{
-		HitWallParticles = Spawn(HitWallParticleFX,,,HitLocation);
-	}
-	else
-	{
-		HitParticles = Spawn(HitParticleFX,,,HitLocation);
-		PlaySound(ImpactSound);
-	}
-
-	Destroy();
+	GotoState('stateDestroy');
 }
 
 function bool IsRelevantToMover()
@@ -157,6 +90,20 @@ function bool IsRelevantToMover()
 function Vector GetTargetLocation(Actor Target)
 {
 	return Target.Location;
+}
+
+function Timer()
+{
+	GotoState('stateDestoy');
+}
+
+function ReactBreak(vector HitNormal, actor HitWall)
+{
+	switch(HitWall.Class)
+	{
+		case Class'GridMover': ProcessTouch(HitWall,Location); break;
+		default: Super.ReactBreak(HitNormal, HitWall); break;
+	}
 }
 
 //-------------------------------------

@@ -24,11 +24,23 @@
 	},
 
 	"Insert Today Date": {
-	"scope": "unrealscript",
-	"prefix": "today",
-	"body": [
-		"${CURRENT_MONTH}/${CURRENT_DATE}/${CURRENT_YEAR}"
-	],
-	"description": "Insert today's date in MM/DD/YYYY format."
-}
+		"scope": "unrealscript",
+		"prefix": "today",
+		"body": [
+			"${CURRENT_MONTH}/${CURRENT_DATE}/${CURRENT_YEAR}"
+		],
+		"description": "Insert today's date in MM/DD/YYYY format."
+	},
+
+	"DefaultProperties": {
+		"scope": "unrealscript",
+		"prefix": "defaultproperties",
+		"body": [
+			"defaultproperties",
+			"{",
+			"",
+			"}"
+		],
+		"description": "DefaultProperties"
+	}
 }

@@ -6,41 +6,47 @@
 
 class Firecrab extends HEnemy;
 
-// Attack
-var(EnemyAttack) class<HProjectile> ProjectileToFire;
+//-------------------------------------
+// Combat
+//-------------------------------------
+var(Combat) class<HProjectile> ProjectileToFire;
 
-var(EnemyAttack) bool bNoCharge;
+var(Combat) bool bNoCharge;
 
-var(EnemyAttack) float FireRange;
-var(EnemyAttack) float MinFireDelay;
-var(EnemyAttack) float MaxFireDelay;
-var(EnemyAttack) float ChargeDuration;
+var(Combat) float FireRange;
+var(Combat) float MinFireDelay;
+var(Combat) float MaxFireDelay;
+var(Combat) float ChargeDuration;
 
-var(EnemyAttack) int ShotsPerCharge;
-var(EnemyAttack) int MinAccuracy;
-var(EnemyAttack) int MaxAccuracy;
+var(Combat) int ShotsPerCharge;
+var(Combat) int MinAccuracy;
+var(Combat) int MaxAccuracy;
 
 var int CurrentShots;
 var float FireCooldown;
 var HProjectile FiredProjectile;
 
-// Flipped
-var(EnemyMovement) vector FallingRotationRate;
-var(EnemyMovement) float MinOnBackTime;
-var(EnemyMovement) float MaxOnBackTime;
+//-------------------------------------
+// Movement
+//-------------------------------------
+var(Movement) vector FallingRotationRate;
+var(Movement) float MinOnBackTime;
+var(Movement) float MaxOnBackTime;
 
-// Sounds
-var(EnemySound) bool bDoTheRoar;
-var(EnemySound) Sound RoarSound;
-var(EnemySound) Sound PreAttackSound;
-var(EnemySound) Sound AttackSound;
-var(EnemySound) Sound HitSound;
-var(EnemySound) Sound HurtSound;
-var(EnemySound) Sound FlipSound;
-var(EnemySound) Sound LandSound;
-
-// Falling
 var bool bSpeen;
+
+//-------------------------------------
+// Sound
+//-------------------------------------
+var(Sound) bool bDoTheRoar;
+var(Sound) Sound RoarSound;
+var(Sound) Sound PreAttackSound;
+var(Sound) Sound AttackSound;
+var(Sound) Sound HitSound;
+var(Sound) Sound HurtSound;
+var(Sound) Sound FlipSound;
+var(Sound) Sound LandSound;
+
 
 
 //-------------------------------------
@@ -65,15 +71,6 @@ event Landed (Vector HitNormal)
 
 	Print("How far did I fall : " $ string(FallDistance));
 }
-
-// DELETEME if unneeded
-/* event Trigger (Actor Other, Pawn EventInstigator)
-{
-	if ( Other == self )
-	{
-		GotoState('stateStayFlipped');
-	}
-} */
 
 //-------------------------------------
 // Audio
@@ -134,27 +131,6 @@ function PlayAttackSound()
 //-------------------------------------
 // Interaction
 //-------------------------------------
-
-function class<baseSpell> GetInteractionSpell(eInteraction InteractionType)
-{
-	local int i;
-
-	if ( SpellInteractions.Length <= 0 )
-	{
-		return MapDefault.SpellVulnerableTo;
-	}
-
-	for ( i = 0; i < SpellInteractions.Length; i++ )
-	{
-		if ( SpellInteractions[i].SpellInteraction == InteractionType )
-		{
-			return SpellInteractions[i].SpellClass;
-		}
-	}
-
-	return MapDefault.SpellVulnerableTo;
-}
-
 function HitByThrownObject (int Damage, HPawn InstigatedBy, Vector HitLocation, Vector Momentum, name ObjectType)
 {
 	CurrentSpellHitCount = 0.0;
@@ -340,12 +316,9 @@ state stateUnflip
 //-------------------------------------
 // Attack
 //-------------------------------------
-function ProcessAttack()
+function bool CanAttack()
 {
-	if ( bIsHuntingHarry && CanAttack() && CanSeeHarry(0.25) && Physics == PHYS_Walking )
-	{
-		DoAttack();
-	}
+	return AttitudeToPlayer == ATTITUDE_Hate && Physics == PHYS_Walking;
 }
 
 function DoAttack()
@@ -358,7 +331,7 @@ function AimBooty()
 	SetRotation(GetBootyDirection(true));
 }
 
-function GetBootyDirection(optional bool bYawOnly)
+function rotator GetBootyDirection(optional bool bYawOnly)
 {
 	local rotator NewRot;
 	NewRot = rotator(GetDirectionAwayFromActor(HatedTarget));
@@ -415,7 +388,7 @@ state stateAiming
 			Sleep(ChargeDuration);
 		}
 
-		if ( CanSeeHarry(0.25) )
+		if ( bSeesHarry )
 		{
 			GotoState('stateFire');
 		}
@@ -453,7 +426,7 @@ state stateFire
 		{
 			CurrentShots = 0;
 
-			if ( CanSeeHarry(0.25) )
+			if ( bSeesHarry )
 			{
 				if ( bCanStrafe )
 				{
@@ -471,13 +444,13 @@ state stateFire
 
 state stateStrafe
 {
-
+	begin:
+		GotoState('stateAiming');
 }
 
 //-------------------------------------
 // Cutscene
 //-------------------------------------
-
 state stateCutCapture
 {
 	event BeginState()
@@ -489,6 +462,9 @@ state stateCutCapture
 
 
 
+//-------------------------------------
+// Default Properties
+//-------------------------------------
 defaultproperties
 {
     RoarSound=Sound'HPSounds.Critters_sfx.firecrab_roar'

@@ -6,9 +6,10 @@
 
 class HEnemy extends HPawn;
 
-var(EnemyAI) array<name> HatedTargetTags;	// Moca: This Enemy will attempt to attack any actors of Tag in this list, if the Enemy class supports it
-var(EnemyAttack) int DamageToDeal;
-
+//-------------------------------------
+// AI
+//-------------------------------------
+var(AI) array<name> HatedTargetTags;	// Moca: This Enemy will attempt to attack any actors of Tag in this list, if the Enemy class supports it
 var Actor HatedTarget;
 
 
@@ -18,6 +19,8 @@ var Actor HatedTarget;
 event Tick(float DeltaTime)
 {
 	ProcessAttack();
+
+	HandleHunt(DeltaTime);
 
 	if ( Physics = PHYS_Walking && FootstepSoundSet != None )
 	{
@@ -47,12 +50,28 @@ event Tick(float DeltaTime)
 	}
 }
 
+function HandleHunt(float DeltaTime)
+{
+	bSeesHarry = CanSeeHarry();
+
+	if ( bSeesHarry )
+	{
+		CurrentSuspicion += SuspicionGrowRate * DeltaTime;
+		CurrentSuspicion = FClamp(CurrentSuspicion, 0.0, MaxSuspicion);
+	}
+	else if ( CurrentSuspicion > 0.0 )
+	{
+		CurrentSuspicion -= SuspicionLossRate * DeltaTime;
+		CurrentSuspicion = FClamp(CurrentSuspicion, 0.0, MaxSuspicion);
+	}
+}
+
 //-------------------------------------
 // Attack
 //-------------------------------------
 function ProcessAttack()
 {
-	if ( bIsHuntingHarry && CanAttack() && CanSeeHarry(0.25) )
+	if ( CanAttack() )
 	{
 		if ( HatedTarget == None )
 		{
@@ -77,7 +96,7 @@ function DisableAttack()
 
 function bool CanAttack()
 {
-	return AttitudeToPlayer == ATTITUDE_Hate;
+	return AttitudeToPlayer == ATTITUDE_Hate && bIsHuntingHarry && bSeesHarry && ( CurrentSuspicion >= RequiredSuspicion );
 }
 
 //-------------------------------------
@@ -120,14 +139,18 @@ function HandleRelease()
 	SpellVulnerableTo = MapDefault.SpellVulnerableTo;
 }
 
+
+
+
 //-------------------------------------
 // Default Properties
 //-------------------------------------
 defaultproperties
 {
-	AttitudeToPlayer=ATTITUDE_Hate
+	bIsHuntingHarry=True
 
-	bUseAllowedAttackPhys=True
-	AllowedAttackPhys(0)=PHYS_Walking
-	AllowedAttackPhys(1)=PHYS_Flying
+	RequiredSuspicion=5.0
+	MaxSuspicion=5.0
+
+	AttitudeToPlayer=ATTITUDE_Hate
 }

@@ -2,29 +2,25 @@
 // BowTruckleTwig.
 //================================================================================
 
-class BowTruckleTwig extends HProp;
-
-var Class<ParticleFX> Particles;
-var int Damage;
-var float MaxLiveTime;
+class BowTruckleTwig extends HProjectile;
 
 function Touch (Actor Other)
 {
-  Super.Touch(Other);
-  if ( Other == PlayerHarry )
-  {
-    PlayerHarry.TakeDamage(Damage,self,Location,vect(0.00,0.00,0.00),'None');
-    DestroyTwig();
-  }
+	Super.Touch(Other);
+	if ( Other == PlayerHarry )
+	{
+		PlayerHarry.TakeDamage(Damage,self,Location,vect(0.00,0.00,0.00),'None');
+		DestroyTwig();
+	}
 }
 
 function DestroyTwig()
 {
-  local Actor p;
+	local Actor p;
 
-  p = Spawn(Particles,,,Location,rot(0,0,0));
-  PlaySoundMiss(p);
-  Destroy();
+	p = Spawn(ReactParticleFX,,,Location);
+	PlaySoundMiss(p);
+	Destroy();
 }
 
 function float PlaySoundMiss (Actor p)
@@ -50,28 +46,6 @@ function float PlaySoundMiss (Actor p)
   duration = GetSoundDuration(snd);
   p.PlaySound(snd);
   return duration;
-}
-
-auto state twigno
-{
-  function Tick (float DeltaTime)
-  {
-    MaxLiveTime -= DeltaTime;
-    if ( MaxLiveTime < 0 )
-    {
-      DestroyTwig();
-    }
-  }
-  
-  function HitWall (Vector HitNormal, Actor Wall)
-  {
-    DestroyTwig();
-  }
- 
- begin:
- loop:
-  Sleep(1.0);
-  goto ('Loop');
 }
 
 defaultproperties

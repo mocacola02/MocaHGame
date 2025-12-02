@@ -1,582 +1,357 @@
-//================================================================================
-// Bowtruckle.
-//================================================================================
+//==========================================
+//
+//	Bowtruckle. Initially rewritten 11/27/2025 - 12/02/2025
+//
+//==========================================
 
-class Bowtruckle extends HChar;
+class Bowtruckle extends HEnemy;
 
-struct DamageParams
+var(Combat) float TauntProbability;				// Moca: How likely is the Bowtruckle to taunt? 1.0 means always taunts first, 0.0 never taunts, 0.5 is a 50/50 chance, etc.
+
+var(Sound) Sound TauntSound;					// Moca: Sound to play on taunt
+var(Sound) Sound AttackSound;					// Moca: Sound to play on attack
+var(Sound) Sound ThrowSound;					// Moca: Sound to play on throw
+var(Sound) Sound HurtSound;						// Moca: Sound to play when hurt
+
+// Twig
+var(Combat) class<HProjectile> ObjectToThrow;	// Moca: What object should Bowtruckle throw at its target? Normally this is its twig projectile
+
+var(Combat) int TwigDamage;						// Moca: How much damage should twigs/whatever thrown object do to its target?
+
+var(Combat) float TwigAccuracyFar;				// Moca: How accurate is our aim when aiming at a far off target? 1.0 means perfect accuracy, 0.0 means horrible accuracy
+var(Combat) float TwigAccuracyNear;				// Moca: How accurate is our aim when aiming at a nearby target? 1.0 means perfect accuracy, 0.0 means horrible accuracy
+
+var(Combat) float TwigScale;					// Moca: What size scale should the twig be? 2.0 = double size, etc. This also affects collision size
+var(Combat) float TwigThrowDelay;				// Moca: How long do we have to wait before throwing another twig?
+
+var(Combat) float TwigThrownTime;				// Moca: How long does it take the twig to land?
+var(Combat) float TwigGravity;					// Moca: What gravity force should be applied to the twig?
+
+var(Combat) float TwigNearMaxRange;				// Moca: Maximum range for TwigAccuracyNear to be used instead of TwigAccuracyFar
+var(Combat) float ChargeRange;					// Moca: Maximum range where the Bowtruckle will charge at Harry instead of throwing? Should be lower than TwigCloseRange
+
+var HProjectile ThrownObj;						// Moca: Actor reference to the thrown object (twig)
+
+// Death
+var(Combat) class<Actor> DroppedObject;
+var(Combat) int DroppedObjectAmount;
+var(Combat) float DroppedObjectRangeMin;			// Moca: Minimum range from the death position the dropped item can fly out to
+var(Combat) float DroppedObjectRangeMax;			// Moca: Maximum range from the death position the dropped item can fly out to
+
+// Wander
+var(Movement) float MinWanderDelay;				// Moca: Minimum time in seconds to wait before wandering to a new spot
+var(Movement) float MaxWanderDelay;				// Moca: Maximum time in seconds to wait before wandering to a new spot
+
+// FX
+var(Display) class<ParticleFX> TwigFX;			// Moca: What particles to attach to the thrown object? Leave blank to use the thrown class' default particles
+
+
+
+function SpawnTwig()
 {
-  var() int ByBowTruckle;
-  var() int ByTwig;
-};
+	local Vector ObjSize;
 
-struct AccuracyParams
-{
-  var() float Far;
-  var() float Close;
-};
+	ThrownObj = Spawn(ObjectToThrow,self);
 
-struct BarkDistParams
-{
-  var() float Min;
-  var() float Max;
-};
+	if ( ThrownObj == None )
+	{
+		return;
+	}
 
-struct BowtruckleParams
-{
-  var() Class<ParticleFX> Died;
-  var() Class<ParticleFX> Hit;
-  var() Class<ParticleFX> Twig;
-};
+	ObjSize = vect(CollisionRadius,CollisionHeight,CollisionWidth);
 
-var BowTruckleTwig objectToThrow;
-var Vector vHome;
-var Vector vNewPos;
-var float ftemp;
-var float SoundDuration;
-var int NumMeshs;
-var bool bInCutScene;
-var() BowtruckleParams Particles;
-var() Mesh Meshs[8];
-var() float TauntProbability;
-var() float TwigScale;
-var() float ThrowDelay;
-var() float startAttack;
-var() float startExcited;
-var() float travelFromHome;
-var() float ThrowTime;
-var() DamageParams Damage;
-var() AccuracyParams Accuracy;
-var() BarkDistParams BarkDist;
-
-function PreBeginPlay()
-{
-  local int I;
-
-  Super.PreBeginPlay();
-  vHome = Location;
-  if ( ThrowDelay <= 0 )
-  {
-    ThrowDelay = 0.01;
-  }
-  NumMeshs = 0;
-
-  for(I = 0; I < 8; I++)
-  {
-    if ( Meshs[I] == None )
-    {
-      NumMeshs = I;
-	  break;
-    }
-  }
-  if ( NumMeshs == 0 )
-  {
-    Meshs[0] = SkeletalMesh'skWiggentreeBarkMesh';
-    NumMeshs = 1;
-  }
+	ThrownObj.SetCollision(False,False,False);
+	ThrownObj.SetCollisionSize(ObjSize.X * TwigScale, ObjSize.Y * TwigScale, ObjSize.Z * TwigScale);
+	ThrownObj.DrawScale = TwigScale;
+	ThrownObj.bRotateToDesired = False;
+	ThrownObj.AttachToOwner('bip01 R Hand');
+	HeldActor = ThrownObj;
 }
 
-function Mesh GetRandomMesh()
+function ThrowTwig()
 {
-  local Mesh lMesh;
-  //local int Index;
-  local int iIndex;
+	local Vector ThrowPosition;
+	local float DistanceFromHarry;
 
-  iIndex = Rand(NumMeshs);
-  lMesh = Meshs[iIndex];
-  return lMesh;
+	DistanceFromHarry = GetDistanceFromActor(PlayerHarry);
+
+	if ( DistanceFromHarry > TwigNearMaxRange )
+	{
+		ThrowPosition = ComputeTrajectoryByTime(ThrownObj.Location,PlayerHarry.Location,TwigThrownTime,TwigGravity);
+		ThrowPosition = GetNearbyLocationWithSpread(ThrowPosition,TwigAccuracyFar);
+	}
+	else if ( DistanceFromHarry > ChargeRange )
+	{
+		ThrowPosition = ComputeTrajectoryByTime(ThrownObj.Location,PlayerHarry.Location,TwigThrownTime,TwigGravity);
+		ThrowPosition = GetNearbyLocationWithSpread(ThrowPosition,TwigAccuracyNear);
+	}
+	else
+	{
+		GotoState('stateChaseHarry');
+		return;
+	}
+
+	ThrowObject(ThrowPosition,True,True);
 }
 
-function GetObjectToThrow()
+function DropBark()
 {
-  objectToThrow = Spawn(Class'BowTruckleTwig',,,);
-  if ( objectToThrow == None )
-  {
-    return;
-  }
-  objectToThrow.SetCollision(False,False,False);
-  objectToThrow.SetOwner(self);
-  objectToThrow.bRotateToDesired = False;
-  objectToThrow.AttachToOwner('bip01 R Hand');
-  objectToThrow.Mesh = GetRandomMesh();
-  objectToThrow.Particles = Particles.Twig;
-  objectToThrow.Damage = Damage.ByTwig;
-  objectToThrow.DrawScale = TwigScale;
-  objectToThrow.MaxLiveTime = ThrowTime + 0.5;
-  aHolding = objectToThrow;
+	local int i;
+	local Actor A;
+	local float Angle;
+	local float Length;
+
+	for ( i = 0; i < DroppedObjectAmount; i++ )
+	{
+		A = Spawn(DroppedObject,,,Location + vect(0,0,30),RotRand());
+		Angle = RandRange(0.0,6.0);
+
+		A.Velocity.X = Length * Cos(Angle);
+		A.Velocity.Y = Length * Sin(Angle);
+		A.Velocity.Z = 100.0 + FRand() * 100;
+	}
 }
 
-function bool HandleSpellDiffindo (optional baseSpell spell, optional Vector vHitLocation)
+function ThrowObject(Vector ThrowVelocity, bool bCollideActors, bool bCollideWorld)
 {
-  Super.HandleSpellDiffindo(spell,vHitLocation);
-  if (  !IsInState('stateHitBySpell') )
-  {
-    GotoState('stateHitBySpell');
-  }
-  return True;
+	HeldActor.SetPhysics(PHYS_Falling);
+	HeldActor.AnimBone = 0;
+	HeldActor.SetCollision(bCollideActors);
+	HeldActor.bCollideWorld = bCollideWorld;
+	HeldActor.Velocity = ThrowVelocity;
+	HeldActor.SetOwner(None);
+	HeldActor = None;
 }
 
-function DestroyActor (Actor A)
+function PlayTauntSound()
 {
-  Spawn(Particles.Died,,,Location,rot(0,0,0));
-  // A.eVulnerableToSpell = 0;
-  A.eVulnerableToSpell = SPELL_None;
-  A.bHidden = True;
-  A.Destroy();
+	if ( TauntSound != None )
+	{
+		PlaySound(TauntSound, SLOT_Talk,RandRange(0.75,1.0), [Pitch] RandRange(0.8,1.2));
+	}
 }
 
-function Vector RandomPosition (Vector NewPos, float Accuracy)
+function PlayAttackSound()
 {
-  local Rotator R;
-  local Vector D;
-  local Vector V;
-  local Vector rv;
-  local float spread;
-
-  spread = (1.0 - Accuracy) * 8192;
-  D.X = NewPos.X;
-  D.Y = NewPos.Y;
-  D.Z = 0.0;
-  R = rotator(D);
-  R.Yaw += RandRange(-spread,spread);
-  V = vector(R);   //this makes the Bowtruckle actually throw bark at Harry (UTPT didn't add this) -AdamJD
-  rv = V * VSize(D);
-  rv.Z = NewPos.Z;
-  
-  return rv;
+	if ( AttackSound != None )
+	{
+		PlaySound(AttackSound, SLOT_Talk,RandRange(0.75,1.0), [Pitch] RandRange(0.8,1.2));
+	}
 }
 
-function DropBark (Vector Loc, float Height)
+function PlayThrowSound()
 {
-  local Class<Actor> classtype;
-  local Actor A;
-  local Vector sloc;
-  local int Num;
-  local float angle;
-  local float Length;
-
-  sloc = Loc;
-  sloc.Z += Height + 30;
-  Num = 1;
-  // if ( Num > 0 )
-  while (Num > 0)
-  {
-    A = Spawn(Class'WiggentreeBark',,,sloc,RotRand());
-    HPawn(A).bDespawnable = False;
-    angle = RandRange(0.0,6.28319979);
-    Length = RandRange(BarkDist.Min,BarkDist.Max);
-    A.Velocity.X = Length * Cos(angle);
-    A.Velocity.Y = Length * Sin(angle);
-    A.Velocity.Z = 100.0 + FRand() * 100;
-    A.DrawScale = TwigScale;
-    Num--;
-    // goto JL0028;
-  }
+	if ( ThrowSound != None )
+	{
+		PlaySound(ThrowSound, SLOT_Talk,RandRange(0.75,1.0), [Pitch] RandRange(0.8,1.2));
+	}
 }
 
-function bool CloseToHome()
+function PlayHurtSound()
 {
-  if ( VSize(Location - vHome) < travelFromHome )
-  {
-    return True;
-  }
-  return False;
+	if ( HurtSound != None )
+	{
+		PlaySound(HurtSound, SLOT_Talk,RandRange(0.75,1.0), [Pitch] RandRange(0.8,1.2));
+	}
 }
 
-function bool FarFromHarry()
+function DoAttack()
 {
-  if ( bInCutScene )
-  {
-    return True;
-  }
-  if ( VSize(PlayerHarry.Location - Location) > SightRadius )
-  {
-    return True;
-  }
-  return False;
+	local float RandFloat;
+	local Vector DistanceFromHarry;
+
+	DistanceFromHarry = GetDistanceFromActor(PlayerHarry);
+
+	if ( DistanceFromHarry > SightRadius )
+	{
+		GotoState('stateIdle');
+		return;
+	}
+
+	if ( DistanceFromHarry > ChargeRange )
+	{
+		RandFloat = FRand();
+
+		if ( TauntProbability >= RandFloat )
+		{
+			GotoState('stateTaunt');
+		}
+		else
+		{
+			Gotostate('stateThrowTwig');
+		}
+	}
+	else
+	{
+		GotoState('stateChaseHarry');
+	}
 }
 
-function float PlaySoundOuch()
+state stateChaseHarry
 {
-  local float duration;
-  local Sound snd;
+	begin:
+		if ( bSeesHarry )
+		{
+			Goto('freechase');
+		}
+		else
+		{
+			Goto('navchase');
+		}
+	
+	freechase:
+		while ( bSeesHarry )
+		{
+			MoveToward(PlayerHarry);
+			SleepForTick();
+		}
 
-  switch (Rand(7))
-  {
-    case 0:
-    snd = Sound'BOW_ouch_01';
-    break;
-    case 1:
-    snd = Sound'BOW_ouch_02';
-    break;
-    case 2:
-    snd = Sound'BOW_ouch_03';
-    break;
-    case 3:
-    snd = Sound'BOW_ouch_04';
-    break;
-    case 4:
-    snd = Sound'BOW_ouch_05';
-    break;
-    case 5:
-    snd = Sound'BOW_ouch_06';
-    break;
-    case 6:
-    snd = Sound'BOW_ouch_07';
-    break;
-    default:
-    snd = None;
-    break;
-  }
-  duration = GetSoundDuration(snd);
-  PlaySound(snd);
-  return duration;
-}
+		if ( !bFollowUpSearch )
+		{
+			Goto(PostChaseState);
+		}
+	
+	navchase:
+		while ( IsSuspicious() )
+		{
+			NextNavP = NavigationPoint(FindPathToward(PlayerHarry));
+			MoveToward(DestNavP);
 
-function PlaySoundTaunt()
-{
-  switch (Rand(9))
-  {
-    case 0:
-    PlaySound(Sound'BOW_taunt1');
-    break;
-    case 1:
-    PlaySound(Sound'BOW_taunt2');
-    break;
-    case 2:
-    PlaySound(Sound'BOW_taunt3');
-    break;
-    case 3:
-    PlaySound(Sound'BOW_taunt4');
-    break;
-    case 4:
-    PlaySound(Sound'BOW_taunt5');
-    break;
-    case 5:
-    PlaySound(Sound'BOW_taunt6');
-    break;
-    case 6:
-    PlaySound(Sound'BOW_taunt7');
-    break;
-    case 7:
-    PlaySound(Sound'BOW_taunt8');
-    break;
-    case 8:
-    PlaySound(Sound'BOW_taunt9');
-    break;
-    default:
-  }
-}
+			SleepForTick();
 
-function PlaySoundAttack()
-{
-  switch (Rand(4))
-  {
-    case 0:
-    PlaySound(Sound'BOW_attack1');
-    break;
-    case 1:
-    PlaySound(Sound'BOW_attack2');
-    break;
-    case 2:
-    PlaySound(Sound'BOW_attack3');
-    break;
-    case 3:
-    PlaySound(Sound'BOW_attack4');
-    break;
-    default:
-  }
-}
-
-function PlaySoundSurprise()
-{
-  switch (Rand(5))
-  {
-    case 0:
-    PlaySound(Sound'BOW_surprise1');
-    break;
-    case 1:
-    PlaySound(Sound'BOW_surprise2');
-    break;
-    case 2:
-    PlaySound(Sound'BOW_surprise3');
-    break;
-    case 3:
-    PlaySound(Sound'BOW_surprise4');
-    break;
-    case 4:
-    PlaySound(Sound'BOW_surprise5');
-    break;
-    default:
-  }
-}
-
-function Bump (Actor Other)
-{
-  if ( harry(Other) == None )
-  {
-    return;
-  }
-  if ( GetStateName() == 'stateAttackHarry' )
-  {
-    return;
-  }
-  if ( IsInState('stateHitBySpell') )
-  {
-    return;
-  }
-  harry(Other).TakeDamage(Damage.ByBowTruckle,None,vect(0.00,0.00,0.00),vect(0.00,0.00,0.00),'None');
-  GotoState('stateAttackHarry');
-}
-
-function HitWall (Vector HitNormal, Actor HitWall)
-{
-  if ( IsInState('stateGoHome') )
-  {
-    return;
-  }
-  if ( IsInState('stateHitBySpell') )
-  {
-    return;
-  }
-  GotoState('stateGoHome');
-}
-
-function PlayerCutCapture()
-{
-  bInCutScene = True;
-}
-
-function PlayerCutRelease()
-{
-  bInCutScene = False;
-}
-
-function Tick (float deltaT)
-{
-  local float Distance;
-
-  Super.Tick(deltaT);
-  if ( IsInState('stateHitBySpell') )
-  {
-    return;
-  }
-  if ( bInCutScene )
-  {
-    return;
-  }
-  Distance = VSize(vHome - Location);
-  if ( Distance > startExcited )
-  {
-    return;
-  }
-  Distance = VSize(PlayerHarry.Location - Location);
-  if ( Distance > SightRadius )
-  {
-    return;
-  }
-  if (  !IsInState('stateIdle') &&  !IsInState('stateGoSomeWhere') )
-  {
-    return;
-  }
-  if ( Distance > startExcited )
-  {
-    if ( FRand() < TauntProbability )
-    {
-      GotoState('stateTaunt');
-    } else {
-      GotoState('stateThrow');
-    }
-    return;
-  }
-  if ( Distance > startAttack )
-  {
-    GotoState('stateThrow');
-    return;
-  }
-  GotoState('stateGotoHarry');
+			if ( bSeesHarry )
+			{
+				Goto('freechase');
+			}
+		}
 }
 
 auto state stateIdle
 {
-begin:
-  Acceleration = vect(0.00,0.00,0.00);
-  Velocity = vect(0.00,0.00,0.00);
-  if (  !FarFromHarry() )
-  {
-    Sleep(0.01);
-    if ( VSize(vHome - Location) > startExcited )
-    {
-      GotoState('stateGoHome');
-    }
-    goto ('Begin');
-  }
-  LoopAnim('Idle');
-  Sleep(RandRange(2.0,3.0));
-  FinishAnim();
-  if (  !CloseToHome() )
-  {
-    GotoState('stateGoHome');
-  } else {
-    GotoState('stateGoSomeWhere');
-  }
-}
+	loop:
+		MoveTo(GetRandomNearbyLocation(HomeLocation,,true));
 
-state stateGoHome
-{
-begin:
-  LoopAnim('Walk');
-  TurnTo(vHome);
-  DesiredRotation.Yaw = Rotation.Yaw;
-  MoveTo(vHome);
-  GotoState('stateIdle');
-}
+		Sleep(RandRange(MinWanderDelay,MaxWanderDelay));
 
-state stateGoSomeWhere
-{
-begin:
-  vNewPos = vHome + travelFromHome * VRand();
-  vNewPos.Z = vHome.Z;
-  LoopAnim('Walk');
-  TurnTo(vNewPos);
-  DesiredRotation.Yaw = Rotation.Yaw;
-  MoveTo(vNewPos);
-  GotoState('stateIdle');
-}
+		if ( MaxDistanceFromHome > 0.0 && GetDistanceFromVector(HomeLocation) > MaxDistanceFromHome )
+		{
+			NextState = 'stateIdle';
+			GotoState('stateGoHome');
+		}
 
-state stateThrow
-{
-begin:
-  Acceleration = vect(0.00,0.00,0.00);
-  Velocity = vect(0.00,0.00,0.00);
-  TurnTo(PlayerHarry.Location);
-  DesiredRotation.Yaw = Rotation.Yaw;
-  GetObjectToThrow();
-  PlaySoundSurprise();
-  PlayAnim('Attack');
-  Sleep(0.5);
-  vNewPos = ComputeTrajectoryByTime(objectToThrow.Location,PlayerHarry.Location,ThrowTime,-256.0);
-  ftemp = VSize(PlayerHarry.Location - Location);
-  if ( ftemp > startExcited )
-  {
-    vNewPos = RandomPosition(vNewPos,FClamp(Accuracy.Far,0.0,1.0));
-  } else //{
-    if ( ftemp > startAttack )
-    {
-      vNewPos = RandomPosition(vNewPos,FClamp(Accuracy.Close,0.0,1.0));
-    }
-  //}
-  ObjectThrow(vNewPos,True,True);
-  if ( ThrowDelay > 1.5 )
-  {
-    FinishAnim();
-  } else {
-    Sleep(ThrowDelay);
-    AnimRate = 0.0;
-  }
-  GotoState('stateIdle');
+		SleepForTick();
 }
 
 state stateTaunt
 {
-begin:
-  Acceleration = vect(0.00,0.00,0.00);
-  Velocity = vect(0.00,0.00,0.00);
-  TurnTo(PlayerHarry.Location);
-  DesiredRotation.Yaw = Rotation.Yaw;
-  PlaySoundTaunt();
-  PlayAnim('Taunt');
-  FinishAnim();
-  GotoState('stateIdle');
+	begin:
+		StopMoving();
+		TurnToward(PlayerHarry);
+		PlayTauntSound();
+		PlayAnim('Taunt');
+		FinishAnim();
+		GotoState('stateIdle');
 }
 
 state stateAttackHarry
 {
-begin:
-  Acceleration = vect(0.00,0.00,0.00);
-  Velocity = vect(0.00,0.00,0.00);
-  TurnTo(PlayerHarry.Location);
-  DesiredRotation.Yaw = Rotation.Yaw;
-  PlaySoundAttack();
-  PlayAnim('React');
-  FinishAnim();
-  vNewPos = Location + 4 * (Location - PlayerHarry.Location) / VSize(Location - PlayerHarry.Location);
-  MoveTo(vNewPos);
-  GotoState('stateIdle');
+	begin:
+		StopMoving();
+		TurnToward(PlayerHarry);
+		PlayAttackSound();
+		PlayAnim('React');
+		FinishAnim();
+		MoveTo(GetRandomNearbyLocation(Location,,true));
+		SleepForTick();
+		Gotostate('stateIdle');
 }
 
-state stateHitBySpell
+state stateThrowTwig
 {
-begin:
-  SoundDuration = PlaySoundOuch();
-  Acceleration = vect(0.00,0.00,0.00);
-  Velocity = vect(0.00,0.00,0.00);
-  // eVulnerableToSpell = 0;
-  eVulnerableToSpell = SPELL_None;
-  Spawn(Particles.Hit,,,Location,rot(0,0,0));
-  DropBark(Location,CollisionHeight);
-  if ( aHolding != None )
-  {
-    aHolding.Destroy();
-  }
-  bHidden = True;
-  Sleep(SoundDuration);
-  DestroyActor(self);
-  // eVulnerableToSpell = 19;
-  eVulnerableToSpell = SPELL_Diffindo;
-  GotoState('stateIdle');
+	begin:
+		StopMoving();
+		TurnToward(PlayerHarry);
+		SpawnTwig();
+		PlayThrowSound();
+		PlayAnim('Attack');
+		Sleep(0.5);
+
+		ThrowTwig();
+
+		Sleep(ThrowDelay);
+
+		GotoState('stateIdle');
 }
 
-state stateGotoHarry
+state stateDie
 {
-begin:
-  LoopAnim('walkexcited');
-  TurnTo(PlayerHarry.Location);
-  DesiredRotation.Yaw = Rotation.Yaw;
-  MoveTo(PlayerHarry.Location);
-  GotoState('stateIdle');
+	begin:
+		PlayHurtSound();
+		StopMoving();
+		SetVulnerableSpell(None);
+		Spawn(DiedFX,,,Location);
+
+		DropBark();
+
+		if ( HeldActor != None )
+		{
+			HeldActor.Destroy();
+		}
+
+		bHidden = True;
+
+		Sleep(GetSoundDuration(HurtSound));
+		GotoState('stateDestroy');
 }
+
+
+
 
 defaultproperties
 {
-    Particles=(Died=Class'HPParticle.Sticks3',Hit=Class'HPParticle.Sticks2',Twig=Class'HPParticle.Sticks1'),
+	SpellInteractions(0)=(SpellClass=Class'spellDiffindo',SpellInteraction=INT_Damage)
+	DamageToDeal=1
 
-    TauntProbability=0.50
+	TauntProbability=0.5
 
-    TwigScale=1.00
+	TauntSound=MultiSound'BOW_Taunt'
+	AttackSound=MultiSound'BOW_Attack'
+	ThrowSound=MultiSound'BOW_Surprise'
+	HurtSound=MultiSound'BOW_Ouch'
 
-    ThrowDelay=1.50
+	ObjectToThrow=class'BowtruckleTwig'
 
-    startAttack=128.00
+	TwigDamage=2
 
-    startExcited=256.00
+	TwigAccuracyFar=0.5
+	TwigAccuracyNear=0.5
 
-    travelFromHome=100.00
+	TwigScale=1.0
+	TwigThrowDelay=1.5
 
-    ThrowTime=1.50
+	TwigThrownTime=1.5
+	TwigGravity=-256.0
 
-    Damage=(ByBowTruckle=1,ByTwig=2)
+	TwigNearMaxRange=256.0
+	ChargeRange=128.0
 
-    Accuracy=(Close=0.50,Far=0.50)
+	DroppedObject=Class'WiggentreeBark'
+	DroppedObjectAmount=1
+	DroppedObjectRangeMin=30.0
+	DroppedObjectRangeMax=60.0
 
-    BarkDist=(Min=30.00,Max=60.00)
+	MinWanderDelay=2.0
+	MaxWanderDelay=3.0
 
-    bThrownObjectDamage=True
+	TwigFX=Class'HPParticle.Sticks1'
 
-    GroundSpeed=220.00
+	GroundSpeed=220.0
+	SightRadius=512.0
+	SpellVulnerableTo=Class'spellDiffindo'
+	Mesh=SkeletalMesh'HPModels.skBowtruckleMesh'
+	Drawscale=1.2
+	CollisionRadius=18.0
+	CollisionHeight=42.0
 
-    SightRadius=512.00
-
-    // eVulnerableToSpell=19
-	eVulnerableToSpell=SPELL_Diffindo
-
-    Mesh=SkeletalMesh'HPModels.skBowtruckleMesh'
-
-    DrawScale=1.20
-
-    AmbientGlow=65
-
-    CollisionRadius=18.00
-
-    CollisionHeight=42.00
+	PostChaseState=stateGoHome
 }

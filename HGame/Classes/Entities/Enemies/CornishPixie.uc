@@ -1,593 +1,279 @@
-//================================================================================
-// CornishPixie.
-//================================================================================
+//==========================================
+//
+//	CornishPixie. Initially rewritten 12/02/2025
+//
+//==========================================
 
-class CornishPixie extends HChar;
+class CornishPixie extends HEnemy;
 
-const BOOL_DEBUG_AI= false;
-var Vector vHome;
-var Vector vOriginalHome;
-var Vector vTargetDir;
-var Rotator rHitRotation;
-var float DistanceHome;
-var(VisualFX) ParticleFX fxFlyParticleEffect;
-var(VisualFX) Class<ParticleFX> fxFlyParticleEffectClass;
-var ParticleFX fxBlowUp;
-var ParticleFX fxHit;
-var baseWand wand;
-var Sound pixieLoopSound;
-var Vector vTemp;
-var CornishPixie myFriends[3];
-var int numFriends;
-var int Counter;
-var bool bAttacking;
-var Vector vHarryAttackPosition;
-var float randomTalk;
-var() int numAttacksDefault;
-var int numAttacks;
-var() float fDamageAmount;
-var() name GroupName;
-var() float timeStunned;
-var bool bStunned;
-var() float encroachRadius;
-var() name patrolPointTag;
-var() bool waitForTrigger;
-var() bool goToPatrolPoint;
-var PatrolPoint pP;
-var() float StayOnSplineDefault;
-var float StayOnSpline;
-var() float StopAttackDistance;
+var(Sound) Sound ChatterSound;
+var(Sound) Sound AttackSound;
+var(Sound) Sound HurtSound;
+var(Sound) Sound BiteSound;
+var(Sound) Sound WingLoopSound;
 
-function PreBeginPlay()
+var() bool bWaitForTrigger;		// Moca: Should this Pixie wait to be triggered before flying? 
+
+var() float BiteRadius;			// Moca: Max distance in which we can bite Harry
+var() float MaxChaseDistance;	// Moca: If Harry gets further than this, pixie stops chasing
+
+var() int HitsToDie;			// Moca: How many hits does it take to kill this pixie?
+
+var float FlyDuration;
+
+var Vector TempHome;
+
+var ParticleFX FlyingParticles;
+
+event PreBeginPlay()
 {
-  Super.PreBeginPlay();
-  vHome = Location;
-  vOriginalHome = Location;
-  lockSpell = True;
-  LoopAnim('Idle');
+	super.PreBeginPlay();
+
+	if ( FlyDuration <= 0.0 )
+	{
+		FlyDuration = Default.AirSpeed / AirSpeed;
+	}
+
+	FlyingParticles = Spawn(Class'HPParticle.PixieFlying',self,,Location);
+	FlyingParticles.bEmit = False;
 }
 
-function PostBeginPlay()
+event Landed(vector HitNormal)
 {
-  local CornishPixie tempPixie;
-  local PixieMarker Marker;
-
-  Super.PostBeginPlay();
-  if ( DrawScale != Default.DrawScale )
-  {
-    SetCollisionSize(Default.CollisionRadius * DrawScale / Default.DrawScale,Default.CollisionHeight * DrawScale / Default.DrawScale);
-  }
-  numAttacks = numAttacksDefault;
-  SetCollision(True,False,True);
-  foreach AllActors(Class'CornishPixie',tempPixie)
-  {
-    if ( tempPixie != self )
-    {
-      if ( tempPixie.GroupName == GroupName )
-      {
-        myFriends[numFriends] = tempPixie;
-        numFriends++;
-      }
-    }
-  }
+	Super.Landed(HitNormal);
+	GotoState('stateHitGround');
 }
 
-function PlayerCutCapture()
+event Trigger(Actor Other, Pawn EventInstigator)
 {
-  GotoState('CutIdle');
+	super.Trigger(Other, EventInstigator);
+
+	GotoState('stateLoopSplinePath');
 }
 
-state CutIdle
+function Yap()
 {
-begin:
-  Acceleration = vect(0.00,0.00,0.00);
-  Velocity = vect(0.00,0.00,0.00);
-  GotoState('waitingForTrigger');
+	if ( ChatterSound != None && IsIsState('stateLoopSplinePath') )
+	{
+		PlaySound(ChatterSound, SLOT_Talk,RandRange(0.75,1.0), [Pitch] RandRange(0.8,1.2));
+
+		SetTimer(RandRange(1.0,6.0),false,'Yap');
+	}
 }
 
-function PlayerCutRelease()
+function PlayAttackSound()
 {
-  LoopAnim('Fly');
-  GotoState('stateLoopSplinePath');
+	if ( AttackSound != None )
+	{
+		PlaySound(AttackSound, SLOT_Talk,RandRange(0.75,1.0), [Pitch] RandRange(0.8,1.2));
+	}
 }
 
-function Timer()
+function PlayHurtSound()
 {
-  GotoState('BlowUpAndDie');
+	if ( HurtSound != None )
+	{
+		PlaySound(HurtSound, SLOT_Talk,RandRange(0.75,1.0), [Pitch] RandRange(0.8,1.2));
+	}
 }
 
-function bool HandleSpellRictusempra (optional baseSpell spell, optional Vector vHitLocation)
+function PlayBiteSound()
 {
-  Super.HandleSpellRictusempra(spell,vHitLocation);
-  GotoState('stateHitByRictusempra');
-  return True;
+	if ( BiteSound != None )
+	{
+		PlaySound(BiteSound, SLOT_Interact,RandRange(0.75,1.0), [Pitch] RandRange(0.8,1.2));
+	}
 }
 
-function Landed (Vector HitNormal)
+function ToggleFlyingParticles(bool bEnableParticles)
 {
-  if ( BOOL_DEBUG_AI )
-  {
-    PlayerHarry.ClientMessage("" $ string(Name) $ ": In function Landed");
-  }
-  SetTimer(0.0,False);
-  Super.Landed(HitNormal);
-  GotoState('HitGround');
+	FlyingParticles.bEmit = bEnableParticles;
 }
 
-function bool GoAfterHarry()
+function bool CanAttack()
 {
-  local bool bRet;
-  local Vector vVectorToHarry;
-
-  bRet = False;
-  vVectorToHarry = PlayerHarry.Location - Location;
-  if ( VSize(vVectorToHarry) < SightRadius &&  !IsInState('CutIdle') )
-  {
-    bRet = True;
-  }
-  return bRet;
+	return AttitudeToPlayer == ATTITUDE_Hate && bIsHuntingHarry && bSeesHarry && !IsInState('stateLoopSplinePath') && ( CurrentSuspicion >= RequiredSuspicion );
 }
 
-function playTalkSound()
+function DoAttack()
 {
-  local Sound talkSound;
-  local int randNum;
-
-  randNum = Rand(6);
-  switch (randNum)
-  {
-    case 0:
-    talkSound = Sound'PIX_talk_01';
-    break;
-    case 1:
-    talkSound = Sound'PIX_talk_02';
-    break;
-    case 2:
-    talkSound = Sound'PIX_talk_03';
-    break;
-    case 3:
-    talkSound = Sound'PIX_talk_04';
-    break;
-    case 4:
-    talkSound = Sound'PIX_talk_05';
-    break;
-    case 5:
-    talkSound = Sound'PIX_talk_06';
-    break;
-    default:
-    talkSound = Sound'PIX_talk_06';
-    break;
-  }
-  PlaySound(talkSound,SLOT_None,RandRange(0.8,1.0),,1000.0,RandRange(0.80,1.20),,False);
+	GotoState('stateChaseHarry');
 }
 
-function playAttackSound()
+function GetTempHome()
 {
-  local Sound AttackSound;
-  local int randNum;
+	local InterpolationPoint NewHome;
+	NewHome = GetNearestActorOfClass(Class'InterpolationPoint');
 
-  randNum = Rand(5);
-  switch (randNum)
-  {
-    case 0:
-    AttackSound = Sound'PIX_attack_01';
-    break;
-    case 1:
-    AttackSound = Sound'PIX_attack_02';
-    break;
-    case 2:
-    AttackSound = Sound'PIX_attack_03';
-    break;
-    case 3:
-    AttackSound = Sound'PIX_attack_04';
-    break;
-    case 4:
-    AttackSound = Sound'PIX_attack_05';
-    break;
-    default:
-    AttackSound = Sound'PIX_attack_05';
-    break;
-  }
-  PlaySound(AttackSound,SLOT_None,RandRange(0.6,1.0),,10000.0,RandRange(0.80,1.20),,False);
-}
-
-function playHitSound()
-{
-  local Sound HitSound;
-  local int randNum;
-
-  randNum = Rand(6);
-  switch (randNum)
-  {
-    case 0:
-    HitSound = Sound'pixie_ouch1';
-    break;
-    case 1:
-    HitSound = Sound'pixie_ouch2';
-    break;
-    case 2:
-    HitSound = Sound'pixie_ouch3';
-    break;
-    case 3:
-    HitSound = Sound'pixie_ouch4';
-    break;
-    case 4:
-    HitSound = Sound'pixie_ouch5';
-    break;
-    case 5:
-    HitSound = Sound'pixie_ouch6';
-    break;
-    default:
-    HitSound = Sound'pixie_ouch1';
-    break;
-  }
-  PlaySound(HitSound,SLOT_None,RandRange(0.6,1.0),,10000.0,RandRange(0.80,1.20),,False);
-}
-
-function playBiteSound()
-{
-  local Sound HitSound;
-  local int randNum;
-
-  randNum = Rand(5);
-  switch (randNum)
-  {
-    case 0:
-    HitSound = Sound'PIX_bite1';
-    break;
-    case 1:
-    HitSound = Sound'PIX_bite2';
-    break;
-    case 2:
-    HitSound = Sound'PIX_bite3';
-    break;
-    case 3:
-    HitSound = Sound'PIX_bite4';
-    break;
-    case 4:
-    HitSound = Sound'PIX_bite5';
-    break;
-    default:
-    HitSound = Sound'PIX_bite1';
-    break;
-  }
-  PlaySound(HitSound,SLOT_None,RandRange(0.6,1.0),,10000.0,RandRange(0.80,1.20),,False);
+	if ( NewHome != None )
+	{
+		TempHome = NewHome.Location;
+	}
+	else
+	{
+		TempHome = HomeLocation;
+	}
 }
 
 auto state stateIdle
 {
-begin:
-  if ( BOOL_DEBUG_AI )
-  {
-    PlayerHarry.ClientMessage("" $ string(Name) $ ": auto stateIdle");
-  }
-  LoopAnim('Fly');
-  if ( waitForTrigger == True )
-  {
-    GotoState('waitingForTrigger');
-  } else {
-    Sleep(FRand() * 2);
-    GotoState('stateLoopSplinePath');
-  }
+	begin:
+		if ( !bWaitForTrigger )
+		{
+			SleepForTick();
+			GotoState('stateLoopSplinePath');
+		}
 }
 
 state stateLoopSplinePath
 {
-  function BeginState()
-  {
-    LoopAnim('Fly');
-    AmbientSound = pixieLoopSound;
-    StayOnSpline = StayOnSplineDefault;
-    // eVulnerableToSpell = 0;
-	eVulnerableToSpell = SPELL_None;
-    fxFlyParticleEffect = Spawn(fxFlyParticleEffectClass,,,Location);
-  }
-  
-  function EndState()
-  {
-    if ( BOOL_DEBUG_AI )
-    {
-      PlayerHarry.ClientMessage("" $ string(Name) $ ": EndState : stateLoopSplinePath");
-    }
-    DestroyControllers();
-    AmbientSound = None;
-    // SetPhysics(4);
-	SetPhysics(PHYS_Flying);
-    bCollideWorld = True;
-    bAlignBottom = False;
-    fxFlyParticleEffect.Shutdown();
-  }
-  
-  function Tick (float DeltaTime)
-  {
-    Super.Tick(DeltaTime);
-    StayOnSpline -= DeltaTime;
-    if ( StayOnSpline < 0 )
-    {
-      // eVulnerableToSpell = 22;
-	  eVulnerableToSpell = SPELL_Rictusempra;
-      if ( GoAfterHarry() )
-      {
-        GotoState('stateMoveTowardHarry');
-      } else {
-        randomTalk -= DeltaTime;
-        if ( randomTalk < 0 )
-        {
-          randomTalk = FRand() * 5 + 1;
-          playTalkSound();
-        }
-      }
-    }
-    if ( VSize(PlayerHarry.Location - Location) < encroachRadius )
-    {
-      GotoState('stateAttackHarry');
-    }
-    fxFlyParticleEffect.SetLocation(Location);
-  }
-  
- begin:
-  if ( BOOL_DEBUG_AI )
-  {
-    PlayerHarry.ClientMessage("" $ string(Name) $ ": stateLoopSplinePath");
-  }
-  FollowSplinePath();
+	event BeginState()
+	{
+		LoopAnim('Fly');
+		AmbientSound = WingLoopSound;
+		ToggleFlyingParticles(true);
+		FollowSplinePath();
+		SetTimer(RandRange(1.0,6.0),false,'Yap');
+	}
+
+	event EndState()
+	{
+		DestroyControllers();
+		SetPhysics(PHYS_Flying);
+		bCollideWorld = True;
+		ToggleFlyingParticles(false);
+	}
 }
 
-state stateMoveTowardHarry
+state stateChaseHarry
 {
-begin:
-  if ( BOOL_DEBUG_AI )
-  {
-    PlayerHarry.ClientMessage("" $ string(Name) $ ": state MoveTowardHarry");
-  }
-  // SetPhysics(4);
-  SetPhysics(PHYS_Flying);
-  vHome = Location;
-  playAttackSound();
-  GotoState('stateAttackHarry');
+	event BeginState()
+	{
+		DoFlyToActor(PlayerHarry,vect(0,0,0),MOVE_TYPE_LINEAR,FlyDuration,true);
+	}
+
+	event Tick(float DeltaTime)
+	{
+		Global.Tick(DeltaTime);
+
+		local float DistFromHarry;
+
+		DistFromHarry = GetDistanceFromActor(PlayerHarry);
+
+		if ( DistFromHarry > MaxChaseDistance )
+		{
+			GotoState('stateGoHome');
+		}
+
+		if ( DistFromHarry <= BiteRadius )
+		{
+			GotoState('stateBite');
+		}
+	}
 }
 
-state stateAttackHarry
+state stateBite
 {
-  function Tick (float DeltaTime)
-  {
-    Super.Tick(DeltaTime);
-    if ( VSize(Location - PlayerHarry.Location) <= PlayerHarry.CollisionRadius + CollisionRadius + 5 )
-    {
-      if ( baseHUD(PlayerHarry.myHUD).bCutSceneMode == False )
-      {
-        GotoState('DamageHarry');
-      }
-    }
-    if ( VSize(vHome - PlayerHarry.Location) > StopAttackDistance )
-    {
-      Velocity = vect(0.00,0.00,0.00);
-      Acceleration = vect(0.00,0.00,0.00);
-      GotoState('HarryGotAway');
-    }
-  }
-  
- begin:
-  LoopAnim('Fly');
- loop:
-  vHarryAttackPosition = PlayerHarry.Location + (vector(PlayerHarry.Rotation) * (PlayerHarry.CollisionRadius + CollisionRadius + 5)) + Vec(0.0,0.0,-25.0);
-  MoveTo(vHarryAttackPosition);
-  Sleep(0.1);
-  goto ('Loop');
+	begin:
+		PlayAnim('Attack',3.0);
+		sleep(0.3);
+		PlayBiteSound();
+		Sleep(0.1);
+		PlayerHarry.TakeDamage(DamageToDeal,Self,Location,Velocity,'Pixie');
+		GotoState('stateGoHome');
 }
 
-state DamageHarry
+state stateGoHome
 {
-begin:
-  Velocity = vect(0.00,0.00,0.00);
-  Acceleration = vect(0.00,0.00,0.00);
-  PlayAnim('Attack',3.0);
-  Sleep(0.3);
-  playBiteSound();
-  Sleep(0.1);
-  PlayerHarry.TakeDamage(fDamageAmount,Pawn(Owner),Location,Velocity * 1,'Pixie');
-  GotoState('stateRunAway');
+	event BeginState()
+	{
+		DoFlyTo(GetTempHome(),MOVE_TYPE_LINEAR,FlyDuration,true);
+	}
+
+	event Tick(float DeltaTime)
+	{
+		Global.Tick(DeltaTime);
+
+		if ( GetDistanceFromVector(TempHome) <= 32.0 )
+		{
+			GotoState('stateLoopSplinePath');
+		}
+	}
 }
 
-state stateRunAway
+state stateStunned
 {
-begin:
-  if ( BOOL_DEBUG_AI )
-  {
-    PlayerHarry.ClientMessage("" $ string(Name) $ ": stateRunAway");
-  }
-  LoopAnim('Fly');
-  // if ( VSize(Location - vHome) > 35 )
-  while ( VSize(Location - vHome) > 35 )
-  {
-    DistanceHome = VSize(Location - vHome);
-    MoveTo(vHome);
-    Sleep(0.2);
-    if ( DistanceHome - VSize(Location - vHome) < 5 )
-    {
-      if ( vHome != vOriginalHome )
-      {
-        vHome = vOriginalHome;
-      } else {
-        MoveTo(PlayerHarry.Location);
-        Sleep(0.2);
-      }
-    }
-    // goto JL0037;
-  }
-  GotoState('stateLoopSplinePath');
+	event BeginState()
+	{
+		if ( TotalSpellHitCount >= HitsToDie )
+		{
+			GotoState('stateFalling');
+		}
+	}
+
+	begin:
+		DestroyControllers();
+		StopMoving();
+		PlayHurtSound();
+		PlayAnim('stun');
+		FinishAnim();
+
+		GotoState(LastValidState);
 }
 
-state stateHitByRictusempra
+state stateFalling
 {
-begin:
-  DestroyControllers();
-  PlaySound(Sound'SPI_hit',SLOT_None,RandRange(0.89999998,1.0),,2000.0,RandRange(1.60,2.20),,False);
-  if ( BOOL_DEBUG_AI )
-  {
-    PlayerHarry.ClientMessage("" $ string(Name) $ ": stateHitByRictusempra");
-  }
-  if (  --numAttacks <= 0 )
-  {
-    SetTimer(timeStunned,False);
-    bStunned = True;
-    fxFlyParticleEffect.Shutdown();
-    SetCollision(False,False,False);
-    SetCollisionSize(Default.CollisionRadius / 5, Default.CollisionHeight - Default.CollisionHeight - 1);
-    // eVulnerableToSpell = 0;
-	eVulnerableToSpell = SPELL_None;
-    Velocity = vect(0.00,0.00,0.00);
-    Acceleration = vect(0.00,0.00,0.00);
-    rHitRotation = Rotation;
-    rHitRotation.Pitch = 0;
-    DesiredRotation = rHitRotation;
-    SetRotation(rHitRotation);
-    playHitSound();
-    fxHit = Spawn(Class'PixieHit',self,,Location,Rotation);
-    LoopAnim('stunspin');
-    Sleep(0.15);
-    bCollideWorld = True;
-    fxHit.Shutdown();
-    playAttackSound();
-    // SetPhysics(1);
-	SetPhysics(PHYS_Walking);
-  } else {
-    Velocity = vect(0.00,0.00,0.00);
-    Acceleration = vect(0.00,0.00,0.00);
-    playHitSound();
-    PlayAnim('stun');
-    FinishAnim();
-    LoopAnim('Idle');
-    Sleep(0.1);
-    GotoState('stateRunAway');
-  }
+	event Timer()
+	{
+		GotoState('stateHitGround');
+	}
+
+	begin:
+		LoopAnim('stunspin');
+		Sleep(0.15);
+		bCollideWorld = True;
+		SetPhysics(PHYS_Walking);
+		SetTimer(10.0,false);
 }
 
-state HitGround
+state stateHitGround
 {
-begin:
-  playHitSound();
-  GotoState('BlowUpAndDie');
-}
-
-state HarryGotAway
-{
-begin:
-  vTemp = Vec(PlayerHarry.Location.X,PlayerHarry.Location.Y,Location.Z);
-  vTargetDir = Normal(vTemp - Location);
-  DesiredRotation = rotator(vTargetDir);
-  LoopAnim('Taunt');
-  playAttackSound();
-  Sleep(1.5);
-  GotoState('stateRunAway');
-}
-
-state waitingForTrigger
-{
-  function Trigger (Actor Other, Pawn EventInstigator)
-  {
-    GotoState('Triggered');
-  }
-  
- begin:
-  LoopAnim('Fly');
-}
-
-state Triggered
-{
-begin:
-  playTalkSound();
-  if ( goToPatrolPoint == True )
-  {
-    foreach AllActors(Class'PatrolPoint',pP,patrolPointTag)
-    {
-      // goto JL002B;
-	  break;
-    }
-    LoopAnim('Fly');
-// JL003C:
-    MoveToward(pP);
-    // if ( VSize(Location - pP.Location) > 10 )
-	while ( VSize(Location - pP.Location) > 10 )
-    {
-      Sleep(0.05);
-      // goto JL003C;
-    }
-    if ( GoAfterHarry() )
-    {
-      GotoState('stateMoveTowardHarry');
-    } else {
-      GotoState('stateLoopSplinePath');
-    }
-  } else {
-    GotoState('stateLoopSplinePath');
-  }
-}
-
-state BlowUpAndDie
-{
-begin:
-  PlaySound(Sound'horklump_mushroom_head_explode',SLOT_None,RandRange(0.6,1.0),,70000.0,RandRange(0.80,1.20),,False);
-  fxBlowUp = Spawn(Class'PixieExplode',self,,Location,Rotation);
-  Sleep(0.1);
-  if ( fxBlowUp != None )
-  {
-    fxBlowUp.Shutdown();
-  }
-  Destroy();
+	begin:
+		PlaySound(Sound'horklump_mushroom_head_explode');
+		Spawn(Class'PixieExplode',,,Location);
+		bHidden = True;
+		Sleep(0.1);
+		GotoState('stateDestroy');
 }
 
 defaultproperties
 {
-    fxFlyParticleEffectClass=Class'HPParticle.PixieFlying'
+	ChatterSound=MultiSound'PIX_Talk'
+	AttackSound=MultiSound'PIX_Attack'
+	HurtSound=MultiSound'PIX_Ouch'
+	BiteSound=MultiSound'PIX_Bite'
+	WingLoopSound=Sound'HPSounds.Critters_sfx.PIX_wingflap_loop'
 
-    pixieLoopSound=Sound'HPSounds.Critters_sfx.PIX_wingflap_loop'
+	BiteRadius=50.0
+	MaxChaseDistance=800.0
 
-    numAttacksDefault=2
+	HitsToDie=1
 
-    fDamageAmount=2.00
+	DamageToDeal=2
 
-    timeStunned=2.00
-
-    encroachRadius=50.00
-
-    StayOnSplineDefault=3.00
-
-    StopAttackDistance=800.00
-
-    bThrownObjectDamage=True
-
-    GroundSpeed=75.00
-
-    AirSpeed=120.00
-
-    SightRadius=400.00
-
-    PeripheralVision=1.00
-
-    WalkAnimName=Fly
-
-    RunAnimName=Fly
-
-    // Physics=4
-	Physics=PHYS_Flying
-
-    // eVulnerableToSpell=22
-	eVulnerableToSpell=SPELL_Rictusempra
+	SpellInteractions(0)=(SpellClass=Class'spellRictusempra',SpellInteraction=INT_Stun)
+	IdleAnimations(0)=Fly
 	
-    Mesh=SkeletalMesh'HPModels.skcornishpixieMesh'
+	WalkAnimName=Fly
+	RunAnimName=Fly
 
-    DrawScale=2.00
+	SightRadius=400.0
+	AirSpeed=120.0
 
-    AmbientGlow=200
+	bBlockActors=False
+	CollisionHeight=20.0
+	CollisionRadius=30.0
+	SoundRadius=75.0
 
-    SoundRadius=75
-
-    CollisionRadius=30.00
-
-    CollisionHeight=20.00
-
-    bBlockActors=False
-
-    RotationRate=(Pitch=50000,Yaw=50000,Roll=50000)
+	Physics=PHYS_Flying
 }
