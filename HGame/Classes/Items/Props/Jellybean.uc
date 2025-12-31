@@ -21,9 +21,7 @@ defaultproperties
 
 	EventToSendOnPickup=JellyBeanPickupEvent
 
-	TargetStatusGroup=Class'StatusGroupJellybeans'
-
-	TargetStatusItem=Class'StatusItemJellybeans'
+	ItemGroupName="JellybeanCollectible"
 
 	BounceSounds(0)=Sound'HPSounds.Magic_sfx.bean_bounce'
 

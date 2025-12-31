@@ -291,7 +291,7 @@ state stateDie
 		SetVulnerableSpell(None);
 		Spawn(DiedFX,,,Location);
 
-		DropBark();
+		SpitOutActor(DroppedObject,DroppedObjectAmount);
 
 		if ( HeldActor != None )
 		{

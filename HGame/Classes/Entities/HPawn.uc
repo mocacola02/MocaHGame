@@ -161,12 +161,13 @@ var name PreBumpState;										// Moca: State this Pawn was in before BumpLine
 var rotator PreBumpRot;										// Moca: This Pawn's rotation before BumpLine
 
 //-------------------------------------
-// Carry
+// Pickup & Carry
 //-------------------------------------
 var(Carry) bool bCanPickupObjects;							// Moca: Can this Pawn pick up objects?
 var(Carry) bool bAffectedByCarriedActors;					// Moca: Is this Pawn affected by carried actors that have been thrown at it?
 var(Carry) array<class> AllowedPickupClasses;				// Moca: What classes can this Pawn pick up?
 var Actor HeldActor;
+var name PickupBone;
 
 //-------------------------------------
 // Movement
@@ -383,7 +384,7 @@ event Destroyed()
 //-------------------------------------
 function name GetSpellName()
 {
-	return baseSpell(SpellVulnerableTo).Default.Name;
+	return baseSpell(SpellVulnerableTo).Name;
 }
 
 function DetermineSpellOutcome(int Damage, Pawn EventInstigator, vector HitLocation, vector Momentum, name DamageType)
@@ -1158,9 +1159,9 @@ function bool CheckPickupObject(Actor Obj, name HoldingBone)
 
 	for ( i = 0; i < AllowedPickupClasses.Length; i++ )
 	{
-		if ( Obj.IsA(AllowedPickupClasses[i].Default.Name) )
+		if ( Obj.IsA(AllowedPickupClasses[i].Name) )
 		{
-			Print("We are allowed to pick up " $ Obj $ " of class " $ AllowedPickupClasses[i].Default.Name);
+			Print("We are allowed to pick up " $ Obj $ " of class " $ AllowedPickupClasses[i].Name);
 			bIsCompatible = True;
 			break;
 		}
@@ -2462,7 +2463,39 @@ function float GetDistanceFromVector(Vector OtherLoc)
     return Abs(VSize(Location - OtherLoc));
 }
 
-function Actor GetNearestActorOfClass(class<Actor> ClassToMatch)
+function int GetInventoryCount()
+{
+	local Inventory Inv;
+	local int InvCount;
+
+	Inv = Inventory;
+
+	while ( Inv != None )
+	{
+		InvCount++;
+		Inv = Inv.Inventory;
+	}
+
+	return InvCount;
+}
+
+function int GetInventoryCountOfClass(class<Actor> ClassFilter)
+{
+	local Inventory Inv;
+	local int InvCount;
+
+	for ( Inv = Inventory; Inv != None; Inv = Inv.Inventory )
+	{
+		if ( Inv.Class == ClassFilter || Inv.ClassIsChildOf(Inv.Class,ClassFilter) )
+		{
+			Count++;
+		}
+	}
+
+	return Count;
+}
+
+function Actor GetNearestActorOfClass(class<Actor> ClassToMatch, optional float MaxDistance)
 {
 	local Actor A;
 	local Actor CurrentWinner;
@@ -2483,7 +2516,41 @@ function Actor GetNearestActorOfClass(class<Actor> ClassToMatch)
 		}
 	}
 
+	if ( MaxDistance > 0.0 && MaxDistance < CurrentDistance )
+	{
+		return None;
+	}
+
 	return CurrentWinner;
+}
+
+function SpitOutActor(class<Actor> ActorToSpawn, optional int NumberToSpawn)
+{
+	local int i;
+	local Actor A;
+	local float Angle;
+	local float Length;
+
+	if ( NumberToSpawn <= 0 )
+	{
+		NumberToSpawn = 1;
+	}
+
+	for ( i = 0; i < NumberToSpawn; i++ )
+	{
+		A = Spawn(ActorToSpawn,,,Location + vect(0,0,30),RotRand());
+		Angle = RandRange(0.0,6.0);
+
+		A.Velocity.X = Length * Cos(Angle);
+		A.Velocity.Y = Length * Sin(Angle);
+		A.Velocity.Z = 100.0 + FRand() * 100;
+	}
+}
+
+function PickupObject(Actor Obj)
+{
+	AttachToBone(Obj,PickupBone);
+	HeldActor = Obj;
 }
 
 function PlayRunAnim()
@@ -2705,4 +2772,6 @@ defaultproperties
 	AmbientGlow=32
 
 	NextState=stateIdle
+
+	PickupBone="bip01 R Hand"
 }

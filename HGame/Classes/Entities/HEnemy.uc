@@ -12,6 +12,8 @@ class HEnemy extends HPawn;
 var(AI) array<name> HatedTargetTags;	// Moca: This Enemy will attempt to attack any actors of Tag in this list, if the Enemy class supports it
 var Actor HatedTarget;
 
+var(Combat) bool bBumpHurtsHarry;
+var(Combat) int BumpDamage;
 
 //-------------------------------------
 // Events
@@ -47,6 +49,23 @@ event Tick(float DeltaTime)
 	if( bDoBreath )
 	{
 		DoBreath(DeltaTime);
+	}
+}
+
+event Bump(Actor Other)
+{
+	if ( Other == PlayerHarry )
+	{
+		if ( bHuntingHarry && bBumpHurtsHarry )
+		{
+			PlayerHarry.TakeDamage(BumpDamage,self,Location,Velocity,'BumpDamage');
+		}
+
+		if ( CanBumpLine() )
+		{
+			DoBumpLine();
+			return;
+		}
 	}
 }
 
@@ -97,6 +116,47 @@ function DisableAttack()
 function bool CanAttack()
 {
 	return AttitudeToPlayer == ATTITUDE_Hate && bIsHuntingHarry && bSeesHarry && ( CurrentSuspicion >= RequiredSuspicion );
+}
+
+//-------------------------------------
+// Audio
+//-------------------------------------
+// spooky scary sound function
+// essentially just PlaySound but you can make the volume, radius, and pitch randomized, may move this to HPawn if needed
+function PlayEnemySound(Sound SoundToPlay, optional ESoundSlot SoundSlot,
+						optional float MinVolume, optional float MaxVolume,
+						optional float MinRadius, optional float MaxRadius,
+						optional float MinPitch, optional float MaxPitch,
+						optional bool bDisable3D, optional bool bLoop)
+{
+	local float FinalVolume;
+	local float FinalRadius;
+	local float FinalPitch;
+
+	if ( SoundToPlay != None )
+	{
+		if ( MinVolume <= 0.0 && MaxVolume <= 0.0 )
+		{
+			MinVolume = TransientSoundVolume;
+			MaxVolume = TransientSoundVolume;
+		}
+		if ( MinRadius <= 0.0 && MaxRadius <= 0.0 )
+		{
+			MinRadius = TransientSoundRadius;
+			MaxRadius = TransientSoundRadius;
+		}
+		if ( MinPitch <= 0.0 && MaxPitch <= 0.0 )
+		{
+			MinPitch = TransientSoundPitch;
+			MaxPitch = TransientSoundPitch;
+		}
+
+		FinalVolume = RandRange(MinVolume,MaxVolume);
+		FinalRadius = RandRange(MinRadius,MaxRadius);
+		FinalPitch = RandRange(MinPitch,MaxPitch);
+
+		PlaySound(SoundToPlay,SoundSlot,FinalVolume,,FinalRadius,FinalPitch,bDisable3D,bLoop);
+	}
 }
 
 //-------------------------------------

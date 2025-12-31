@@ -58,7 +58,7 @@ state BounceIntoPlace
 				local Sound SoundBounce;
 				SoundBounce = BounceSounds[Rand(BounceSounds.Length)];
 
-				PlaySound(SoundBounce,,Abs(Velocity.Z) / 100,,);
+				PlaySound(SoundBounce,,Abs(Velocity.Z) / 100);
 			}
 		}
 	}

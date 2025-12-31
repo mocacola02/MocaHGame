@@ -472,6 +472,22 @@ function OnEvent (name EventName)
 	Super.OnEvent(EventName);
 }
 
+function int GetInventoryCountOfClass(class<Actor> ClassFilter)
+{
+	local Inventory Inv;
+	local int InvCount;
+
+	for ( Inv = Inventory; Inv != None; Inv = Inv.Inventory )
+	{
+		if ( Inv.Class == ClassFilter || Inv.ClassIsChildOf(Inv.Class,ClassFilter) )
+		{
+			Count++;
+		}
+	}
+
+	return Count;
+}
+
 //-------------------------------------
 // Debug Functions
 //-------------------------------------

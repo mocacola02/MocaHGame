@@ -14,12 +14,9 @@ enum EPickupFlyTo
 
 var() int PickupIncrement;					// Moca: How many of the collectible does this count for? Def: 1
 
-var() bool bGnomeable;					// Moca: Can Gnomes pick up this bean? Def: False
+var() bool bGnomeable;						// Moca: Can Gnomes pick up this collectible? Def: False
 
 var() name EventToSendOnPickup;				// Moca: What event should be sent on pickup? Def: None
-
-var() Class<StatusGroup> TargetStatusGroup;	// Moca: What StatusGroup does this collectible apply to?
-var() Class<StatusItem> TargetStatusItem;	// Moca: What StatusItem does this collectible apply to?
 
 var() array<Sound> PickupSounds;			// Moca: What sound(s) play on pickup?
 var() array<Sound> DropOffSound;			// Moca: What sound(s) play on drop off?
@@ -36,6 +33,7 @@ var float CurrCameraZoomDist;
 
 var float MinFlyToHudScale;
 var float MaxFlyToHudScale;
+
 var Vector HudLocation;
 
 //-------------------------------------
@@ -298,7 +296,6 @@ defaultproperties
 	StartCamZoomDist=160.0
 
 	PickupFlyTo=FT_HudPosition
-
 
 	bBlockActors=False
 
