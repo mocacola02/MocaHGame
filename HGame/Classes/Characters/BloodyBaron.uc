@@ -1,27 +1,29 @@
-//================================================================================
+//==========================================================================//
 // bloodybaron.
-//================================================================================
-
+//
+// Character actor used for the Bloody Baron.
+// 
+// Formatting, commenting, & documentation by Moca unless stated otherwise.
+//==========================================================================//
 class bloodybaron extends Characters;
 
 defaultproperties
 {
-    ShadowClass=None
+	ShadowClass=None
 
-    Mesh=SkeletalMesh'HPModels.skbloodybaronMesh'
+	Mesh=SkeletalMesh'HPModels.skbloodybaronMesh'
 
-    DrawScale=1.20
+	DrawScale=1.20
 
-    AmbientGlow=65
+	AmbientGlow=65
 
-    Opacity=0.75
+	Opacity=0.75
 
-    CollisionHeight=47.00
+	CollisionHeight=47.00
 
-    bCollideWorld=False
+	bCollideWorld=False
 
-    bBlockActors=False
+	bBlockActors=False
 
-    bBlockPlayers=False
-
+	bBlockPlayers=False
 }

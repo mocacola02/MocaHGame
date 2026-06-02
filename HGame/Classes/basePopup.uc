@@ -5,7 +5,6 @@
 // 
 // Formatting, commenting, & documentation by Moca unless stated otherwise.
 //==========================================================================//
-
 class basePopup extends Actor;
 
 var harry PlayerHarry;	// Reference to Harry

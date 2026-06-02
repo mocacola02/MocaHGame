@@ -1,19 +1,21 @@
-//================================================================================
+//==========================================================================//
 // NHNickPetrified.
-//================================================================================
-
+//
+// Character actor used for Nearly Headless Nick when petrified.
+//
+// Formatting, commenting, & documentation by Moca unless stated otherwise.
+//==========================================================================//
 class NHNickPetrified extends Characters;
 
 defaultproperties
 {
-    ShadowClass=None
+	ShadowClass=None
 
-    Mesh=SkeletalMesh'HPModels.skNHNickPetrifiedMesh'
+	Mesh=SkeletalMesh'HPModels.skNHNickPetrifiedMesh'
 
-    AmbientGlow=65
+	AmbientGlow=65
 
-    Opacity=0.75
+	Opacity=0.75
 
-    CollisionHeight=45.00
-
+	CollisionHeight=45.00
 }

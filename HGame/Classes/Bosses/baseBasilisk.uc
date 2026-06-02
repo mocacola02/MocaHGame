@@ -1,25 +1,36 @@
-//================================================================================
+//==========================================================================//
 // baseBasilisk.
-//================================================================================
-
+//
+// Base class for Basilisk boss.
+// 
+// Formatting, commenting, & documentation by Moca unless stated otherwise.
+//==========================================================================//
 class baseBasilisk extends baseBoss;
 
-var() float HeadDamage;
-var() float TailDamage;
+var() float HeadDamage;	// Damage done by head.
+var() float TailDamage;	// Damage done by tail.
 
-function ColObjTouch (Actor Other, GenericColObj ColObj)
-{
-}
+
+
+//=================
+// Main Functions
+//=================
+
+// On collision object touch. Does nothing without extending.
+function ColObjTouch (Actor Other, GenericColObj ColObj);
+
+
+//=====================
+// Default Properties
+//=====================
 
 defaultproperties
 {
-    HeadDamage=80.00
+	HeadDamage=80.00
 
-    TailDamage=3.00
+	TailDamage=3.00
 
-    // EnemyHealthBar=1
 	EnemyHealthBar=EnemyBar_Basilisk
 
-    // Physics=0
 	Physics=PHYS_None
 }

@@ -1,21 +1,23 @@
-//================================================================================
+//==========================================================================//
 // TomRiddle.
-//================================================================================
-
+//
+// Character actor used for Tom Riddle.
+//
+// Formatting, commenting, & documentation by Moca unless stated otherwise.
+//==========================================================================//
 class TomRiddle extends Characters;
 
 defaultproperties
 {
-    ShadowClass=None
+	ShadowClass=None
 
-    attachedParticleClass(0)=Class'HPParticle.TomRiddleFX'
+	attachedParticleClass(0)=Class'HPParticle.TomRiddleFX'
 
-    Mesh=SkeletalMesh'HPModels.skTomRiddleMesh'
+	Mesh=SkeletalMesh'HPModels.skTomRiddleMesh'
 
-    AmbientGlow=65
+	AmbientGlow=65
 
-    CollisionRadius=15.00
+	CollisionRadius=15.00
 
-    CollisionHeight=45.00
-
+	CollisionHeight=45.00
 }

@@ -1,19 +1,21 @@
-//================================================================================
+//==========================================================================//
 // SortingHat.
-//================================================================================
-
+//
+// Character actor used for the Sorting Hat.
+//
+// Formatting, commenting, & documentation by Moca unless stated otherwise.
+//==========================================================================//
 class SortingHat extends Characters;
 
 defaultproperties
 {
-    bDoEyeBlinks=False
+	bDoEyeBlinks=False
 
-    Mesh=SkeletalMesh'HPModels.skSortingHatMesh'
+	Mesh=SkeletalMesh'HPModels.skSortingHatMesh'
 
-    AmbientGlow=65
+	AmbientGlow=65
 
-    CollisionRadius=17.00
+	CollisionRadius=17.00
 
-    CollisionHeight=14.00
-
+	CollisionHeight=14.00
 }

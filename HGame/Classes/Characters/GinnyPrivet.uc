@@ -1,7 +1,10 @@
-//================================================================================
+//==========================================================================//
 // GinnyPrivet.
-//================================================================================
-
+//
+// Character actor used for Ginny Weasley on map 'PrivetDr.unr'.
+// 
+// Formatting, commenting, & documentation by Moca unless stated otherwise.
+//==========================================================================//
 class GinnyPrivet extends Characters;
 
 defaultproperties

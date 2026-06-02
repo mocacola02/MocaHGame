@@ -1,21 +1,23 @@
-//================================================================================
+//==========================================================================//
 // MoaningMyrtle.
-//================================================================================
-
+//
+// Character actor used for Moaning Myrtle.
+//
+// Formatting, commenting, & documentation by Moca unless stated otherwise.
+//==========================================================================//
 class MoaningMyrtle extends Characters;
 
 defaultproperties
 {
-    ShadowClass=None
+	ShadowClass=None
 
-    Style=STY_Translucent
+	Style=STY_Translucent
 
-    Mesh=SkeletalMesh'HPModels.skmoaningmyrtleMesh'
+	Mesh=SkeletalMesh'HPModels.skmoaningmyrtleMesh'
 
-    AmbientGlow=65
+	AmbientGlow=65
 
-    CollisionRadius=15.00
+	CollisionRadius=15.00
 
-    CollisionHeight=37.00
-
+	CollisionHeight=37.00
 }

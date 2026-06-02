@@ -1,17 +1,19 @@
-//================================================================================
+//==========================================================================//
 // ProfSprout.
-//================================================================================
-
+//
+// Character actor used for Professor Sprout.
+//
+// Formatting, commenting, & documentation by Moca unless stated otherwise.
+//==========================================================================//
 class ProfSprout extends Characters;
 
 defaultproperties
 {
-    Mesh=SkeletalMesh'HPModels.skProfSproutMesh'
+	Mesh=SkeletalMesh'HPModels.skProfSproutMesh'
 
-    AmbientGlow=65
+	AmbientGlow=65
 
-    CollisionRadius=17.00
+	CollisionRadius=17.00
 
-    CollisionHeight=47.00
-
+	CollisionHeight=47.00
 }

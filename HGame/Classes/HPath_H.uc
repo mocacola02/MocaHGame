@@ -1,16 +1,23 @@
-//================================================================================
+//==========================================================================//
 // HPath_H.
-//================================================================================
-
+//
+// Leftover path actor from HP1.
+// 
+// Formatting, commenting, & documentation by Moca unless stated otherwise.
+//==========================================================================//
 class HPath_H extends basePath;
 
-//texture import -AdamJD
+//== Imports ==//
 #exec Texture Import File=Textures\ich.PNG Name=ich COMPRESSION=3 UPSCALE=1 Mips=0 Flags=0
+
+
+//=====================
+// Default Properties
+//=====================
 
 defaultproperties
 {
-    Tag=HPath_H
+	Tag=HPath_H
 
-    Texture=Texture'HGame.ich'
-
+	Texture=Texture'HGame.ich'
 }

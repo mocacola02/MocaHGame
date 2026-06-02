@@ -1,27 +1,34 @@
-//================================================================================
+//==========================================================================//
 // TargetPoint.
-//================================================================================
-
+//
+// Generic HPawn to be used as a targeting point.
+//
+// Formatting, commenting, & documentation by Moca unless stated otherwise.
+//==========================================================================//
 class TargetPoint extends HPawn;
+
+
+//=====================
+// Default Properties
+//=====================
 
 defaultproperties
 {
-    bHidden=True
+	bHidden=True
 
-    // DrawType=1
 	DrawType=DT_Sprite
 
-    Texture=Texture'Engine.S_Patrol'
+	Texture=Texture'Engine.S_Patrol'
 
-    CollisionRadius=2.00
+	CollisionRadius=2.00
 
-    CollisionHeight=2.00
+	CollisionHeight=2.00
 
-    bCollideActors=False
+	bCollideActors=False
 
-    bCollideWorld=False
+	bCollideWorld=False
 
-    bBlockActors=False
+	bBlockActors=False
 
-    bBlockPlayers=False
+	bBlockPlayers=False
 }

@@ -1,17 +1,19 @@
-//================================================================================
+//==========================================================================//
 // HagridYoung.
-//================================================================================
-
+//
+// Character actor used for young Hagrid.
+// 
+// Formatting, commenting, & documentation by Moca unless stated otherwise.
+//==========================================================================//
 class HagridYoung extends Characters;
 
 defaultproperties
 {
-    Mesh=SkeletalMesh'HPModels.skHagridYoungMesh'
+	Mesh=SkeletalMesh'HPModels.skHagridYoungMesh'
 
-    AmbientGlow=65
+	AmbientGlow=65
 
-    CollisionRadius=30.00
+	CollisionRadius=30.00
 
-    CollisionHeight=53.00
-
+	CollisionHeight=53.00
 }

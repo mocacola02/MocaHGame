@@ -5,7 +5,6 @@
 // 
 // Formatting, commenting, & documentation by Moca unless stated otherwise.
 //==========================================================================//
-
 class BaseCamTarget extends HiddenHPawn; 
 
 var bool bRelative;			// Whether or not to make target offset relative

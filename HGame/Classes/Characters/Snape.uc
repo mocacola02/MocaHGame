@@ -1,7 +1,10 @@
-//================================================================================
+//==========================================================================//
 // Snape.
-//================================================================================
-
+//
+// Character actor used for interactive Professor Snape.
+//
+// Formatting, commenting, & documentation by Moca unless stated otherwise.
+//==========================================================================//
 class Snape extends Characters;
 
 var float fWaitTime;

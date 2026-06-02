@@ -110,9 +110,9 @@ event Destroyed()
 }
 
 
-//=======
-// Init
-//=======
+//==================
+// Init & Shutdown
+//==================
 
 // Initiate spell
 function InitSpell (Actor CastedBy, Actor CastedAt, optional Vector CastedAtOffset, optional float CastedChargeAmount, optional baseWand CastedFromWand)
@@ -160,10 +160,124 @@ function OnSpellInit();
 // Called when the spell shuts down
 function OnSpellShutdown();
 
-// Set debug mode
-function SetDebugMode (bool bOn)
+
+//==================
+// Effects
+//==================
+
+// Scales a given ParticleFX system to a given scale
+function ScaleParticles (ParticleFX FX, float Scale)
 {
-	bUseDebugMode = bOn;
+	FX.ParticlesPerSec.Base = 		FX.Default.ParticlesPerSec.Base * Scale;
+	FX.SourceHeight.Base = 			FX.Default.SourceHeight.Base * Scale;
+	FX.SourceWidth.Base = 			FX.Default.SourceWidth.Base * Scale;
+	FX.SourceDepth.Base = 			FX.Default.SourceDepth.Base * Scale;
+	FX.SizeWidth.Base = 			FX.Default.SizeWidth.Base * Scale;
+	FX.SizeLength.Base = 			FX.Default.SizeLength.Base * Scale;
+	FX.AngularSpreadWidth.Base = 	FX.Default.AngularSpreadWidth.Base * Scale;
+	FX.AngularSpreadHeight.Base = 	FX.Default.AngularSpreadHeight.Base * Scale;
+	FX.SpinRate.Base = 				FX.Default.SpinRate.Base * Scale;
+}
+
+// Spawn hit particle effects
+function CreateHitEffects (Actor ActorHit, Vector vHitLocation)
+{
+	local float lTime;
+
+	// If we have an impact sound, play it
+	if ( ImpactSound != None )
+	{
+		PlaySound( ImpactSound, SLOT_None,  1.0, false, 2000.0, 1);
+	}
+
+	// If in debug mode, log that we're creating FX
+	if ( bUseDebugMode )
+	{
+		PlayerPawn(Instigator).ClientMessage("Spell::CreateHitEffects using hitFXClass = " $ string(fxHitParticleEffectClass) $ " reactFXClass = " $ string(fxReactParticleEffectClass));
+	}
+
+	// If we have a hit particle class
+	if ( fxHitParticleEffectClass != None )
+	{
+		// Spawn the particles
+		fxHitParticleEffect = Spawn(fxHitParticleEffectClass);
+
+		// Set the particle location to our hit location
+		fxHitParticleEffect.SetLocation(vHitLocation);
+
+		// Make sure the particle rotation is its default rotation
+		fxHitParticleEffect.SetRotation(fxHitParticleEffect.Default.Rotation);
+
+		// Set owner to the hit actor
+		fxHitParticleEffect.SetOwner(ActorHit);
+		
+		// If FX is duel rictu or duel mimble hit particle class
+		if ( fxHitParticleEffect.IsA('duelRictusempra_hit') || fxHitParticleEffect.IsA('duelMimblewimble_hit') )
+		{
+			// If rictu hit class, set hit actor to our hit actor
+			if ( fxHitParticleEffect.IsA('duelRictusempra_hit') )
+			{
+				duelRictusempra_hit(fxHitParticleEffect).HitActor = ActorHit;
+			}
+			// Otherwise, if mimble hit class, set hit actor to our hit actor
+			else if ( fxHitParticleEffect.IsA('duelMimblewimble_hit') )
+			{
+				duelMimblewimble_hit(fxHitParticleEffect).HitActor = ActorHit;
+			}
+
+			// If hit actor is Harry, set our lifetime to Harry's fTimeAfterHit
+			if ( ActorHit.IsA('harry') )
+			{
+				lTime = PlayerHarry.fTimeAfterHit;
+			}
+			// Otherwise, if hit actor is a Duellist, set our lifetime to Duellist's fTimeAfterHit
+			else if ( ActorHit.IsA('Duellist') )
+			{
+				lTime = Duellist(PlayerHarry.DuelOpponent).fTimeAfterHit;
+			}
+			
+			// Set new lifetime
+			fxHitParticleEffect.LifeTime.Base = Max(1.0, lTime);
+		}
+		
+		// If spell charge is larger than 0 and we have a wand, scale particles based on charge
+		if( SpellCharge > 0 && SpellWand != None )
+		{
+			ScaleParticles(fxHitParticleEffect, SpellWand.GetChargeParticleFXScale(SpellCharge));
+		}
+	}
+	
+	// If we have a react particle fx class
+	if( fxReactParticleEffectClass != None )
+	{
+		// Spawn react particles
+		fxReactParticleEffect = spawn(fxReactParticleEffectClass);
+
+		// Set particle location to hit location
+		fxReactParticleEffect.SetLocation(vHitLocation);
+
+		// Make sure the particle rotation is its default rotation
+		fxReactParticleEffect.SetRotation(fxHitParticleEffect.Default.Rotation);
+
+		// Set particle owner to hit actor
+		fxReactParticleEffect.SetOwner(ActorHit);
+
+		// Set the particle source width to the hit actor's collision radius
+		fxReactParticleEffect.SourceWidth.Base = HProp(ActorHit).CollisionRadius;
+	}
+}
+
+// Sets spell charge and scales particles based on the given value
+function SetSpellCharge (float fNewCharge)
+{
+	// Update spell charge
+	SpellCharge = fNewCharge;
+
+	// If spell charge is larger than 0 and we have a wand, scale the particles based on the new scale
+	if ( (SpellCharge > 0) && (SpellWand != None) )
+	{
+		ScaleParticles(fxFlyParticleEffect,SpellWand.GetChargeParticleFXScale(SpellCharge));
+	}
 }
 
 // Play the proper incantation sound on Harry
@@ -179,24 +293,10 @@ function PlayIncantationSound (Actor Instigator)
 	}
 }
 
-// Called when spell hits Harry
-function bool OnSpellHitHarry (Actor aHit, Vector HitLocation)
-{
-  return False;
-}
 
-// Called when spell hits HPawn
-function bool OnSpellHitHPawn (Actor aHit, Vector HitLocation)
-{
-  return False;
-}
-
-// Called when spell hits a wall
-function bool OnSpellHitWall (Actor aWall, Vector HitNormal)
-{
-  fxHitWallParticleEffect = Spawn(fxHitWallParticleEffectClass,self,,Location);
-  return True;
-}
+//============
+// Spell Hit
+//============
 
 // Called on hit wall
 simulated function HitWall (Vector HitNormal, Actor Wall)
@@ -234,285 +334,326 @@ simulated function HitWall (Vector HitNormal, Actor Wall)
 	Destroy();
 }
 
+// Called when on Touch event or when baseWand handles an AutoHit
 function ProcessTouch (Actor Other, Vector HitLocation)
 {
+	// If in debug mode, log that we're calling this
 	if ( bUseDebugMode )
 	{
 		PlayerHarry.ClientMessage("Spell::ProcessTouch : " $ string(self) $ " other :" $ string(Other));
 	}
 
+	// If we hit our owner, a spell, or a particle system
 	if ( (Other == Owner) || Other.IsA('baseSpell') || Other.IsA('ParticleFX') )
 	{
+		// If in debug mode, log that we had an invalid touch
 		if ( bUseDebugMode )
 		{
 			PlayerHarry.ClientMessage("Spell: " $ string(self) $ " *INVALID* Touch to :" $ string(Other) $ "will not die yet.");
 		}
+
+		// Return and do nothing
 		return;
 	}
+	// Otherwise, if we hit Harry
 	else if ( Other.IsA('harry') )
 	{
-		if ( False == OnSpellHitHarry(Other,HitLocation) )
+		// Handle hit Harry behavior, and if it returns false
+		if ( !OnSpellHitHarry(Other,HitLocation) )
 		{
+			// If in debug mode, log that we can't hit Harry
 			if ( bUseDebugMode )
 			{
 				PlayerHarry.ClientMessage("Spell:" $ string(self.Name) $ " *INVALID* Touch to Harry:" $ string(Other.Name) $ " NOT RELEVANT, OnSpellHitHarry() returned false!");
 			}
 			
+			// Return and do nothing
 			return;
 		}
 
+		// If in debug mode, log that we can hit Harry
 		if ( bUseDebugMode )
 		{
 			PlayerHarry.ClientMessage("Spell: " $ string(self) $ " VALID Touch to Harry:" $ string(Other) $ " SpellCharge: " $ string(SpellCharge));
 		}
 
+		// Create hit effects
 		CreateHitEffects(Other,HitLocation);
 	}
+	// Otherwise, if we hit an HPawn
 	else if ( Other.IsA('HPawn') )
 	{
-		if ( False == OnSpellHitHPawn(Other,HitLocation) )
+		// Handle hit HPawn behavior, and if it returns false
+		if ( !OnSpellHitHPawn(Other,HitLocation) )
 		{
+			// If in debug mode, log that we can't hit HPawn
 			if ( bUseDebugMode )
 			{
 				PlayerHarry.ClientMessage("Spell:" $ string(self.Name) $ " *INVALID* Touch to HPAWN:" $ string(Other.Name) $ " NOT RELEVANT, OnSpellHitHPawn() returned false!");
 			}
+
+			// Return and do nothing
 			return;
 		}
 		
+		// If in debug mode, log that we can hit HPawn
 		if ( bUseDebugMode )
 		{
 			PlayerHarry.ClientMessage("Spell: " $ string(self) $ " VALID Touch to HPAWN:" $ string(Other) $ " SpellCharge: " $ string(SpellCharge));
 		}
 
+		// Call spell hit behavior on the hit HPawn
 		HPawn(Other).OnSpellHit(self,HitLocation);
+
+		// Create hit effects
 		CreateHitEffects(Other,HitLocation);
 	}
+	// If we hit a spellTrigger
 	else if ( Other.IsA('spellTrigger') )
 	{
+		// If in debug mode, log that we can hit it
 		if ( bUseDebugMode )
 		{
 			PlayerHarry.ClientMessage("Spell: " $ string(self) $ " VALID Touch to spellTrigger:" $ string(Other));
 		}
 
+		// Create hit effects
 		CreateHitEffects(Other,HitLocation);
 	}
+	// Otherwise
 	else
 	{
+		// If in debug mode, log that we hit some other thing
 		if ( bUseDebugMode )
 		{
 			PlayerHarry.ClientMessage("Spell: " $ string(self) $ " Touched ***UNCLASSIFIED***:" $ string(Other));
 		}
 	}
 
+	// Set our physics to none
 	SetPhysics(PHYS_None);
+
+	// Prepare to shutdown
 	OnSpellShutdown();
+
+	// Destroy self
 	Destroy();
 }
 
-static function Texture GetSpellIcon()
+// Called when spell hits Harry
+function bool OnSpellHitHarry (Actor aHit, Vector HitLocation)
 {
-  return Default.SpellIcon;
+  return False;
 }
 
-function bool IsRelevantToMover()
+// Called when spell hits HPawn
+function bool OnSpellHitHPawn (Actor aHit, Vector HitLocation)
 {
+  return False;
+}
+
+// Called when spell hits a wall
+function bool OnSpellHitWall (Actor aWall, Vector HitNormal)
+{
+  fxHitWallParticleEffect = Spawn(fxHitWallParticleEffectClass,self,,Location);
   return True;
 }
 
-function ScaleParticles (ParticleFX FX, float Scale)
-{
-  FX.ParticlesPerSec.Base = FX.Default.ParticlesPerSec.Base * Scale;
-  FX.SourceHeight.Base = FX.Default.SourceHeight.Base * Scale;
-  FX.SourceWidth.Base = FX.Default.SourceWidth.Base * Scale;
-  FX.SourceDepth.Base = FX.Default.SourceDepth.Base * Scale;
-  FX.SizeWidth.Base = FX.Default.SizeWidth.Base * Scale;
-  FX.SizeLength.Base = FX.Default.SizeLength.Base * Scale;
-  FX.AngularSpreadWidth.Base = FX.Default.AngularSpreadWidth.Base * Scale;
-  FX.AngularSpreadHeight.Base = FX.Default.AngularSpreadHeight.Base * Scale;
-  FX.SpinRate.Base = FX.Default.SpinRate.Base * Scale;
-}
 
-function CreateHitEffects (Actor ActorHit, Vector vHitLocation)
-{
-  //local float Scale;
-  local float lTime;
+//=================
+// Spell Movement
+//=================
 
-  if ( ImpactSound != None )
-  {
-    // PlaySound(ImpactSound,0,1.0,False,2000.0,1.0);
-	PlaySound( ImpactSound, SLOT_None,  1.0, false, 2000.0, 1);
-  }
-  if ( bUseDebugMode )
-  {
-    PlayerPawn(Instigator).ClientMessage("Spell::CreateHitEffects using hitFXClass = " $ string(fxHitParticleEffectClass) $ " reactFXClass = " $ string(fxReactParticleEffectClass));
-  }
-  if ( fxHitParticleEffectClass != None )
-  {
-    fxHitParticleEffect = Spawn(fxHitParticleEffectClass);
-    fxHitParticleEffect.SetLocation(vHitLocation);
-    fxHitParticleEffect.SetRotation(fxHitParticleEffect.Default.Rotation);
-    fxHitParticleEffect.SetOwner(ActorHit);
-    if ( fxHitParticleEffect.IsA('duelRictusempra_hit') || fxHitParticleEffect.IsA('duelMimblewimble_hit') )
-    {
-      if ( fxHitParticleEffect.IsA('duelRictusempra_hit') )
-      {
-        duelRictusempra_hit(fxHitParticleEffect).HitActor = ActorHit;
-      } else //{
-        if ( fxHitParticleEffect.IsA('duelMimblewimble_hit') )
-        {
-          duelMimblewimble_hit(fxHitParticleEffect).HitActor = ActorHit;
-        }
-      //}
-      if ( ActorHit.IsA('harry') )
-      {
-        lTime = PlayerHarry.fTimeAfterHit;
-      } else //{
-        if ( ActorHit.IsA('Duellist') )
-        {
-          lTime = Duellist(PlayerHarry.DuelOpponent).fTimeAfterHit;
-        }
-		
-		fxHitParticleEffect.LifeTime.Base = Max(1.0, lTime); //UTPT didn't add this -AdamJD
-    }
-	
-	//UTPT didn't add this -AdamJD
-	if( SpellCharge > 0 && SpellWand != None )
-	{
-		ScaleParticles(fxHitParticleEffect, SpellWand.GetChargeParticleFXScale(SpellCharge));
-	}
-  }
-  
-  //UTPT didn't add this -AdamJD
-  if( fxReactParticleEffectClass != None )
-  {
-	  fxReactParticleEffect = spawn(fxReactParticleEffectClass);
-	  fxReactParticleEffect.SetLocation(vHitLocation);
-	  fxReactParticleEffect.SetRotation(fxHitParticleEffect.Default.Rotation);
-	  fxReactParticleEffect.SetOwner(ActorHit);
-	  fxReactParticleEffect.SourceWidth.Base = HProp(ActorHit).collisionRadius;
-  }
-}
-
+// Set the spell's direction
 function SetSpellDirection (Vector Dir)
 {
-  CurrentDir = Normal(Dir);
-  DesiredRotation = rotator(CurrentDir);
-  SetRotation(DesiredRotation);
-  fxFlyParticleEffect.SetRotation(DesiredRotation);
+	// Set current direction to the normalized dir
+	CurrentDir = Normal(Dir);
+
+	// Set our desired rotation to rotate towards dir
+	DesiredRotation = rotator(CurrentDir);
+
+	// Set our rotation to our desired rotation
+	SetRotation(DesiredRotation);
+
+	// Set the particle's rotation to our desired rotation
+	fxFlyParticleEffect.SetRotation(DesiredRotation);
 }
 
+// Returns the target hit location
 function Vector GetTargetHitLocation()
 {
-  return TargetActor.Location + TargetOffset;
+	return TargetActor.Location + TargetOffset;
 }
 
-function UpdateRotationWithSeeking (float fTimeDelta)
+// Update our rotation while seeking towards target
+function UpdateRotationWithSeeking (float DeltaTime)
 {
-  local Vector TargetDir;
+	local Vector TargetDir;
 
-  if ( TargetActor == None )
-  {
-    return;
-  }
-  TargetDir = Normal(GetTargetHitLocation() - Location);
-  CurrentDir += (TargetDir - CurrentDir) * FMin(1.0,SeekSpeed * fTimeDelta);
-  CurrentDir = Normal(CurrentDir);
-  DesiredRotation = rotator(CurrentDir);
-  SetRotation(DesiredRotation);
-  Velocity = CurrentDir * Speed;
+	// If we have no target actor, return and do nothing
+	if ( TargetActor == None )
+	{
+		return;
+	}
+
+	// Get our target direction
+	TargetDir = Normal(GetTargetHitLocation() - Location);
+
+	// Set our current direction towards our target direction, accounting for SeekSpeed
+	CurrentDir += (TargetDir - CurrentDir) * FMin(1.0,SeekSpeed * DeltaTime);
+	
+	// Normalize our direction
+	CurrentDir = Normal(CurrentDir);
+
+	// Set our desired rotation to rotate towards the current direction
+	DesiredRotation = rotator(CurrentDir);
+
+	// Set our rotation to our desired rotation
+	SetRotation(DesiredRotation);
+
+	// Set our velocity to the current direction adjusted for our speed
+	Velocity = CurrentDir * Speed;
 }
 
-function SetSpellCharge (float fNewCharge)
-{
-  //local float Scale;
-
-  SpellCharge = fNewCharge;
-  if ( (SpellCharge > 0) && (SpellWand != None) )
-  {
-    ScaleParticles(fxFlyParticleEffect,SpellWand.GetChargeParticleFXScale(SpellCharge));
-  }
-}
-
+// Reflects the direction of the spell back towards the previous owner
 function Reflect (Actor aNewOwner, float fNewCharge, float fNewSpeed)
 {
-  local Pawn PawnOwner;
+	local Pawn PawnOwner;
 
-  if ( SpellWand != None )
-  {
-    SpellWand.SubtractFromCastedSpellList(self);
-  }
-  if ( aNewOwner.IsA('Pawn') )
-  {
-    PawnOwner = Pawn(aNewOwner);
-    if ( PawnOwner.Weapon.IsA('baseWand') )
-    {
-      SpellWand = baseWand(PawnOwner.Weapon);
-      SpellWand.AddToCastedSpellList(self);
-    }
-  }
-  TargetActor = Owner;
-  SetOwner(aNewOwner);
-  SetSpellCharge(fNewCharge);
-  SetSpellDirection(GetTargetHitLocation() - Location);
-  Speed = fNewSpeed;
-  Velocity = CurrentDir * Speed;
-  SpellLifeTime = Default.SpellLifeTime;
-  LifeSpan = Default.LifeSpan;
-  if ( bUseDebugMode )
-  {
-    PlayerHarry.ClientMessage("*Spell REFLECTED by " $ string(aNewOwner) $ ", new owner = " $ string(Owner) $ " new target: " $ string(TargetActor) $ " new charge: " $ string(SpellCharge) $ " new speed: " $ string(Speed));
-  }
+	// If we have a wand, subtract ourselves from the casted spell list
+	if ( SpellWand != None )
+	{
+		SpellWand.SubtractFromCastedSpellList(self);
+	}
+	
+	// If the new owner is a Pawn
+	if ( aNewOwner.IsA('Pawn') )
+	{
+		// Set our pawn owner to the new pawn
+		PawnOwner = Pawn(aNewOwner);
+
+		// If pawn's weapon is a wand
+		if ( PawnOwner.Weapon.IsA('baseWand') )
+		{
+			// Update our wand reference
+			SpellWand = baseWand(PawnOwner.Weapon);
+
+			// Add ourselves to the wand's casted spell list
+			SpellWand.AddToCastedSpellList(self);
+		}
+	}
+
+	// Set target actor to our owner
+	TargetActor = Owner;
+
+	// Set our owner to now be our new owner
+	SetOwner(aNewOwner);
+
+	// Set spell charge to the new charge
+	SetSpellCharge(fNewCharge);
+
+	// Set our new spell direction
+	SetSpellDirection(GetTargetHitLocation() - Location);
+
+	// Set our new speed
+	Speed = fNewSpeed;
+
+	// Calculate our velocity
+	Velocity = CurrentDir * Speed;
+
+	// Reset our lifetime
+	SpellLifeTime = Default.SpellLifeTime;
+
+	// Reset our lifespan
+	LifeSpan = Default.LifeSpan;
+
+	// If in debug mode, log that we reflected
+	if ( bUseDebugMode )
+	{
+		PlayerHarry.ClientMessage("*Spell REFLECTED by " $ string(aNewOwner) $ ", new owner = " $ string(Owner) $ " new target: " $ string(TargetActor) $ " new charge: " $ string(SpellCharge) $ " new speed: " $ string(Speed));
+	}
 }
+
+
+//================
+// Misc. Helpers
+//================
+
+// Returns the spell's default spell icon
+static function Texture GetSpellIcon()
+{
+	return Default.SpellIcon;
+}
+
+// Returns whether or not this spell is relevant to movers
+function bool IsRelevantToMover()
+{
+	return True;
+}
+
+// Set debug mode
+function SetDebugMode (bool bOn)
+{
+	bUseDebugMode = bOn;
+}
+
+
+//=====================
+// Default Properties
+//=====================
 
 defaultproperties
 {
-    SpellIcon=Texture'HGame.Icons.defaultSpellIcon'
+	SpellIcon=Texture'HGame.Icons.defaultSpellIcon'
 
-    SpellLifeTime=8.00
+	SpellLifeTime=8.00
 
-    SeekSpeed=7.00
+	SeekSpeed=7.00
 
-    fxHitWallParticleEffectClass=Class'HPParticle.DustCloud02_small'
+	fxHitWallParticleEffectClass=Class'HPParticle.DustCloud02_small'
 
-    Speed=500.00
+	Speed=500.00
 
-    Damage=5.00
+	Damage=5.00
 
-    ImpactSound=Sound'HPSounds.Magic_sfx.spell_hit'
+	ImpactSound=Sound'HPSounds.Magic_sfx.spell_hit'
 
-    bNetTemporary=False
+	bNetTemporary=False
 
-    // RemoteRole=2
 	RemoteRole=ROLE_SimulatedProxy
 
-    LifeSpan=10.00
+	LifeSpan=10.00
 
-    // Style=3
 	Style=STY_Translucent 
 
-    DrawScale=0.30
+	DrawScale=0.30
 
-    bUnlit=True
+	bUnlit=True
 
-    CollisionRadius=2.00
+	CollisionRadius=2.00
 
-    CollisionHeight=2.00
+	CollisionHeight=2.00
 
-    bProjTarget=True
+	bProjTarget=True
 
-    // LightType=1
 	LightType=LT_Steady
 
-    // LightEffect=13
 	LightEffect=LE_NonIncidence
 
-    LightBrightness=201
+	LightBrightness=201
 
-    LightHue=165
+	LightHue=165
 
-    LightSaturation=72
+	LightSaturation=72
 
-    LightRadius=10
+	LightRadius=10
 
-    bFixedRotationDir=True
+	bFixedRotationDir=True
 }
+
+//=====================================================================================================
+// This class was originally written 03/29/2002.
+// March 29th is Piano Day!
+// - Moca, 6/2/2026
+//=====================================================================================================

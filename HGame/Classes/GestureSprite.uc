@@ -1,32 +1,48 @@
-//================================================================================
+//==========================================================================//
 // GestureSprite.
-//================================================================================
-
+//
+// Sprite actor used for spell gesture during targeting.
+// 
+// Formatting, commenting, & documentation by Moca unless stated otherwise.
+//==========================================================================//
 class GestureSprite extends Sprite;
 
-function PreBeginPlay()
+
+//=========
+// Events
+//=========
+
+// Called before gameplay starts
+event PreBeginPlay()
 {
-  Super.PreBeginPlay();
-  SetCollision(,,);
-  bCollideWorld = False;
+	// Call parent behavior
+	Super.PreBeginPlay();
+
+	// Set all collision to false
+	SetCollision(,,);
+	bCollideWorld = False;
 }
+
+
+//=====================
+// Default Properties
+//=====================
 
 defaultproperties
 {
-    bHidden=True
+	bHidden=True
 
-    Texture=None
+	Texture=None
 
-    CollisionRadius=2.00
+	CollisionRadius=2.00
 
-    CollisionHeight=2.00
+	CollisionHeight=2.00
 
-    bCollideActors=False
+	bCollideActors=False
 
-    bCollideWorld=False
+	bCollideWorld=False
 
-    bBlockActors=False
+	bBlockActors=False
 
-    bBlockPlayers=False
-
+	bBlockPlayers=False
 }

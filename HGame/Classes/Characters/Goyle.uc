@@ -1,21 +1,23 @@
-//================================================================================
+//==========================================================================//
 // Goyle.
-//================================================================================
-
+//
+// Character actor used for Goyle.
+// 
+// Formatting, commenting, & documentation by Moca unless stated otherwise.
+//==========================================================================//
 class Goyle extends Characters;
 
 defaultproperties
 {
-    GroundRunSpeed=220.00
+	GroundRunSpeed=220.00
 
-    Mesh=SkeletalMesh'HPModels.skGoyleMesh'
+	Mesh=SkeletalMesh'HPModels.skGoyleMesh'
 
-    DrawScale=1.15
+	DrawScale=1.15
 
-    AmbientGlow=65
+	AmbientGlow=65
 
-    CollisionRadius=15.00
+	CollisionRadius=15.00
 
-    CollisionHeight=44.00
-
+	CollisionHeight=44.00
 }
