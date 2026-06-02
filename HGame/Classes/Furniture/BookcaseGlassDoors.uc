@@ -1,7 +1,10 @@
-//================================================================================
+//==========================================================================//
 // BookcaseGlassDoors.
-//================================================================================
-
+//
+// Bookcase with glass doors furniture actor.
+// 
+// Formatting, commenting, & documentation by Moca unless stated otherwise.
+//==========================================================================//
 class BookcaseGlassDoors extends HFurniture;
 
 defaultproperties
