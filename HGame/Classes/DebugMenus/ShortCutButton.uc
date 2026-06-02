@@ -1,41 +1,35 @@
-//================================================================================
-// ShortCutButton.
-//================================================================================
+//==========================================================================//
+// ScalingComboBox.
+//
+// Button class used for ShortCutBrowser.
+// 
+// Formatting, commenting, & documentation by Moca unless stated otherwise.
+//==========================================================================//
+class ShortCutButton extends UWindowButton;
 
-class ShortCutButton extends UWindowButton;//HGameButton;
-
-//texture imports -AdamJD
+//= Imports =//
 #exec Texture Import File=Textures\Icons\ButtonUpTexture.PNG	GROUP=Icons	Name=ButtonUpTexture COMPRESSION=3 UPSCALE=1 Mips=0 Flags=536870914
 #exec Texture Import File=Textures\Icons\ButtonDownTexture.PNG	GROUP=Icons	Name=ButtonDownTexture COMPRESSION=3 UPSCALE=1 Mips=0 Flags=536870914
 
-var string strText;
+//= Main Vars =//
+var string strText;	// Text string
 
-//texture vars -AdamJD
-var Texture UpButtonTexture;
-var Texture DownButtonTexture;
+var Texture UpButtonTexture;	// Up button texture
+var Texture DownButtonTexture;	// Down button texture
 
+
+
+//=================
+// Main Functions
+//=================
+
+// Called when resized
 function Resized()
 {
+	// Call parent behavior
 	Super.Resized();
 	
-	/*
-	// Metallicafan212:	Now set everything up
-	EditBox.SetSize(WinWidth - 12, WinHeight);
-	
-	Button.SetSize(WinWidth - 12, 12);
-	
-	if(LeftButton != None)
-		LeftButton.SetSize(WinWidth - 12, 12);
-		
-	if(RightButton != None)
-		RightButton.SetSize(WinWidth - 12, 12);
-		
-	EditBoxWidth = WinWidth;
-	EditAreaDrawX = 0.0;
-	EditAreaDrawY = 0.0;
-	*/
-	
-	// Metallicafan212:	Scale the region
+	// Metallicafan212:	Scale the region to window size
 	UpRegion.W			= WinWidth;
 	UpRegion.H			= WinHeight;
 	
@@ -49,37 +43,50 @@ function Resized()
 	OverRegion.H		= WinHeight;
 }
 
+// Called when created
 function Created ()
 {
+	// Call parent behavior
 	Super.Created();
-	//UpTexture = Texture'ButtonUpTexture';
-	//DownTexture = Texture'ButtonDownTexture';
-	//OverTexture = Texture'ButtonUpTexture';
+
+	// Set textures
 	UpTexture = UpButtonTexture;
 	DownTexture = DownButtonTexture;
 	OverTexture = UpButtonTexture;
+
+	// Set text string to "NOSTR"
 	strText = "NOSTR";
 }
 
+// Set strText to a given string
 function SetText (string NewText)
 {
 	strText = NewText;
 }
 
+// Paint onto canvas
 function Paint (Canvas Canvas, float X, float Y)
 {
+	// Call parent behavior
 	Super.Paint(Canvas,X,Y);
+
+	// Zero out draw color to get black
 	Canvas.DrawColor.R = 0;
 	Canvas.DrawColor.G = 0;
 	Canvas.DrawColor.B = 0;
+
+	// Clip the text string
 	ClipText(Canvas,4.0,4.0,strText);
 }
 
-//find the textures -AdamJD
+
+//=====================
+// Default Properties
+//=====================
+
 defaultproperties
 {
-	UpButtonTexture=ButtonUpTexture	//Texture'HGame.Icons.ButtonUpTexture'
-	
-	DownButtonTexture=ButtonDownTexture	//Texture'HGame.Icons.ButtonDownTexture'
+	UpButtonTexture=ButtonUpTexture
+	DownButtonTexture=ButtonDownTexture
 }
 
