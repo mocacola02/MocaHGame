@@ -1,227 +1,312 @@
-//================================================================================
+//==========================================================================//
 // baseSpell.
-//================================================================================
-
+//
+// Base class for spell projectiles.
+// 
+// Formatting, commenting, & documentation by Moca unless stated otherwise.
+//==========================================================================//
 class baseSpell extends Projectile; 
 
-//texture import -AdamJD
-#exec Texture Import File=Textures\Icons\defaultSpellIcon.PNG	GROUP=Icons Name=defaultSpellIcon COMPRESSION=3 UPSCALE=1 Mips=0 Flags=2
+//== Imports ==//
+#exec Texture Import File=Textures\Icons\defaultSpellIcon.PNG	GROUP=Icons Name=defaultSpellIcon COMPRESSION=3 UPSCALE=1 Mips=0 Flags=2	// Import default spell icon
 
-var ESpellType SpellType;
-var Texture SpellIcon;
-var float SpellCharge;
-var float SpellLifeTime;
-var baseWand SpellWand;
-var Actor TargetActor;
-var Vector TargetOffset;
-var() float SeekSpeed;
-var Vector CurrentDir;
-var(VisualFX) ParticleFX fxFlyParticleEffect;
-var(VisualFX) Class<ParticleFX> fxFlyParticleEffectClass;
-var(VisualFX) ParticleFX fxHitParticleEffect;
-var(VisualFX) Class<ParticleFX> fxHitParticleEffectClass;
-var(VisualFX) ParticleFX fxHitWallParticleEffect;
-var(VisualFX) Class<ParticleFX> fxHitWallParticleEffectClass;
-var(VisualFX) ParticleFX fxReactParticleEffect;
-var(VisualFX) Class<ParticleFX> fxReactParticleEffectClass;
-var Sound CastSound;
-var string SpellIncantation;
-var string QuietSpellIncantation;
-var harry PlayerHarry;
+//== Debug ==//
 var bool bUseDebugMode;
 
-function SetDebugMode (bool bOn)
+//== Spell Info ==//
+var float SpellCharge;		// Amount the spell has been charged, value between 0.0 and 1.0
+var float SpellLifeTime;	// Lifetime of the spell
+var Texture SpellIcon;		// Icon of the spell
+var ESpellType SpellType;	// Type of the spell
+
+//== Movement ==/
+var() float SeekSpeed;		// Speed to seek at
+var Vector CurrentDir;		// Movement direction
+var Vector TargetOffset;	// Offset from target
+
+//== ParticleFX ==//
+var(VisualFX) ParticleFX		fxFlyParticleEffect;			// Flying particle actor
+var(VisualFX) Class<ParticleFX> fxFlyParticleEffectClass;		// Flying particle class to spawn
+
+var(VisualFX) ParticleFX		fxHitParticleEffect;			// Hit particle actor
+var(VisualFX) Class<ParticleFX> fxHitParticleEffectClass;		// Hit particle class to spawn
+
+var(VisualFX) ParticleFX		fxHitWallParticleEffect;		// Hit wall particle actor
+var(VisualFX) Class<ParticleFX> fxHitWallParticleEffectClass;	// Hit wall particle class to spawn
+
+var(VisualFX) ParticleFX 		fxReactParticleEffect;			// React particle actor
+var(VisualFX) Class<ParticleFX> fxReactParticleEffectClass;		// React particle class to spawn
+
+//== Sounds ==//
+var Sound CastSound;				// Cast sound
+var string SpellIncantation;		// Spell incantation name
+var string QuietSpellIncantation;	// Quiet incantation name
+
+//== Actor References ==//
+var Actor TargetActor;		// Target actor reference
+var baseWand SpellWand;		// Casting wand reference
+var harry PlayerHarry;		// Harry reference
+
+
+
+//=========
+// Events
+//=========
+
+// Called right after gameplay starts
+event PostBeginPlay()
 {
-  bUseDebugMode = bOn;
+	// Call parent post begin play behavior
+	Super.PostBeginPlay();
+
+	// Get Harry reference
+	PlayerHarry = harry(Level.PlayerHarryActor);
+
+	// Set current direction to our rotation
+	CurrentDir = vector(Rotation);
 }
 
-function InitSpell (Actor CastedBy, Actor CastedAt, optional Vector CastedAtOffset, optional float CastedChargeAmount, optional baseWand CastedFromWand)
+// On tick
+event Tick (float DeltaTime)
 {
-  //local float Scale;
+	// If the decreased lifetime is less than 0.0
+	if ( (SpellLifeTime -= DeltaTime) < 0.0 )
+	{
+		// If using debug mode, log that we're out of lifetime
+		if ( bUseDebugMode )
+		{
+			PlayerHarry.ClientMessage("Spell " $ string(self) $ " LifeTime is up!");
+		}
 
-  SetOwner(CastedBy);
-  TargetActor = CastedAt;
-  TargetOffset = CastedAtOffset;
-  SpellWand = CastedFromWand;
-  if ( (fxFlyParticleEffect == None) && (fxFlyParticleEffectClass != None) )
-  {
-    fxFlyParticleEffect = Spawn(fxFlyParticleEffectClass);
-    fxFlyParticleEffect.SetLocation(Location);
-    fxFlyParticleEffect.SetRotation(Rotation);
-  }
-  SetSpellCharge(CastedChargeAmount);
-  if ( bUseDebugMode )
-  {
-    PlayerHarry.ClientMessage("InitSpell: " $ string(self) $ " owner: " $ string(Owner) $ " target: " $ string(TargetActor) $ " charge: " $ string(SpellCharge) $ " speed: " $ string(Speed));
-  }
-  OnSpellInit();
+		// Handle spell shutdown
+		OnSpellShutdown();
+
+		// Destroy self
+		Destroy();
+	}
 }
 
-simulated function PostBeginPlay()
-{
-  //local float Scale;
+// Called when actor goes out of bounds
+// Set to do nothing, so spells don't get killed if they clip OOB
+event FellOutOfWorld();
 
-  Super.PostBeginPlay();
-  PlayerHarry = harry(Level.PlayerHarryActor);
-  CurrentDir = vector(Rotation);
-}
-
+// Called when destroyed
 event Destroyed()
 {
-  if ( SpellWand != None )
-  {
-    SpellWand.SubtractFromCastedSpellList(self);
-  }
-  if ( fxFlyParticleEffect != None )
-  {
-    fxFlyParticleEffect.Shutdown();
-  }
-  OnSpellShutdown();
+	// If we have a ref to the wand, subtract self from wand's casted spell list
+	if ( SpellWand != None )
+	{
+		SpellWand.SubtractFromCastedSpellList(self);
+	}
+
+	// If we have a flying particle, shut it down
+	if ( fxFlyParticleEffect != None )
+	{
+		fxFlyParticleEffect.Shutdown();
+	}
+
+	// Handle spell shutdown
+	OnSpellShutdown();
 }
 
-function OnSpellInit()
+
+//=======
+// Init
+//=======
+
+// Initiate spell
+function InitSpell (Actor CastedBy, Actor CastedAt, optional Vector CastedAtOffset, optional float CastedChargeAmount, optional baseWand CastedFromWand)
 {
+	// Set owner to the actor that casted us
+	SetOwner(CastedBy);
+
+	// Set the target actor to the casted at actor
+	TargetActor = CastedAt;
+
+	// Set the target offset to the casted at offset
+	TargetOffset = CastedAtOffset;
+
+	// Set spell wand to the casting wand
+	SpellWand = CastedFromWand;
+
+	// If we have no flying particle actor AND we have a flying particle class
+	if ( (fxFlyParticleEffect == None) && (fxFlyParticleEffectClass != None) )
+	{
+		// Spawn particle actor
+		fxFlyParticleEffect = Spawn(fxFlyParticleEffectClass);
+
+		// Set location and rotation to our location and rotation
+		fxFlyParticleEffect.SetLocation(Location);
+		fxFlyParticleEffect.SetRotation(Rotation);
+	}
+
+	// Set charge to the given charge amount
+	SetSpellCharge(CastedChargeAmount);
+
+	// If in debug mode, log the init spell results
+	if ( bUseDebugMode )
+	{
+		PlayerHarry.ClientMessage("InitSpell: " $ string(self) $ " owner: " $ string(Owner) $ " target: " $ string(TargetActor) $ " charge: " $ string(SpellCharge) $ " speed: " $ string(Speed));
+	}
+
+	// Call on spell init
+	OnSpellInit();
 }
 
-function OnSpellShutdown()
+// Called after InitSpell
+// Overridden in children classes
+function OnSpellInit();
+
+// Called when the spell shuts down
+function OnSpellShutdown();
+
+// Set debug mode
+function SetDebugMode (bool bOn)
 {
+	bUseDebugMode = bOn;
 }
 
-event FellOutOfWorld()
-{
-}
-
+// Play the proper incantation sound on Harry
 function PlayIncantationSound (Actor Instigator)
 {
-  if ( Instigator.IsA('harry') )
-  {
-    harry(Instigator).HandleSpellIncantationSound(SpellType);
-  } else //{
-    if ( Instigator.IsA('HPawn') )
-    {
-      HPawn(Instigator).HandleSpellIncantationSound(SpellType);
-    }
-  //}
+	if ( Instigator.IsA('harry') )
+	{
+		harry(Instigator).HandleSpellIncantationSound(SpellType);
+	}
+	else if ( Instigator.IsA('HPawn') )
+	{
+		HPawn(Instigator).HandleSpellIncantationSound(SpellType);
+	}
 }
 
-event Tick (float fTimeDelta)
-{
-  if ( (SpellLifeTime -= fTimeDelta) < 0 )
-  {
-    if ( bUseDebugMode )
-    {
-      PlayerHarry.ClientMessage("Spell " $ string(self) $ " LifeTime is up!");
-    }
-    OnSpellShutdown();
-    Destroy();
-  }
-}
-
+// Called when spell hits Harry
 function bool OnSpellHitHarry (Actor aHit, Vector HitLocation)
 {
   return False;
 }
 
+// Called when spell hits HPawn
 function bool OnSpellHitHPawn (Actor aHit, Vector HitLocation)
 {
   return False;
 }
 
+// Called when spell hits a wall
 function bool OnSpellHitWall (Actor aWall, Vector HitNormal)
 {
   fxHitWallParticleEffect = Spawn(fxHitWallParticleEffectClass,self,,Location);
   return True;
 }
 
+// Called on hit wall
 simulated function HitWall (Vector HitNormal, Actor Wall)
 {
-  if ( Wall.IsA('GridMover') )
-  {
-    if ( bUseDebugMode )
-    {
-      PlayerHarry.ClientMessage("Spell: " $ string(self) $ " HitWall GridMover: " $ string(Wall));
-    }
-    CreateHitEffects(Wall,Location);
-  } else {
-    if ( bUseDebugMode )
-    {
-      PlayerHarry.ClientMessage("Spell: " $ string(self) $ " HitWall Other: " $ string(Wall));
-    }
-    if ( False == OnSpellHitWall(Wall,HitNormal) )
-    {
-      return;
-    }
-  }
-  OnSpellShutdown();
-  Destroy();
+	// If wall is of class GridMover
+	if ( Wall.IsA('GridMover') )
+	{
+		// If in debug mode, log that we hit a grid mover
+		if ( bUseDebugMode )
+		{
+			PlayerHarry.ClientMessage("Spell: " $ string(self) $ " HitWall GridMover: " $ string(Wall));
+		}
+
+		// Create the spell hit effects
+		CreateHitEffects(Wall,Location);
+	}
+	// Otherwise
+	else
+	{
+		// If in debug mode, log that we hit a wall
+		if ( bUseDebugMode )
+		{
+			PlayerHarry.ClientMessage("Spell: " $ string(self) $ " HitWall Other: " $ string(Wall));
+		}
+
+		// If we shouldn't process hitting the wall, return
+		if ( !OnSpellHitWall(Wall,HitNormal) )
+		{
+			return;
+		}
+	}
+
+	// Shut down spell and destroy
+	OnSpellShutdown();
+	Destroy();
 }
 
 function ProcessTouch (Actor Other, Vector HitLocation)
 {
-  if ( bUseDebugMode )
-  {
-    PlayerHarry.ClientMessage("Spell::ProcessTouch : " $ string(self) $ " other :" $ string(Other));
-  }
-  if ( (Other == Owner) || Other.IsA('baseSpell') || Other.IsA('ParticleFX') )
-  {
-    if ( bUseDebugMode )
-    {
-      PlayerHarry.ClientMessage("Spell: " $ string(self) $ " *INVALID* Touch to :" $ string(Other) $ "will not die yet.");
-    }
-    return;
-  } else //{
-    if ( Other.IsA('harry') )
-    {
-      if ( False == OnSpellHitHarry(Other,HitLocation) )
-      {
-        if ( bUseDebugMode )
-        {
-          PlayerHarry.ClientMessage("Spell:" $ string(self.Name) $ " *INVALID* Touch to Harry:" $ string(Other.Name) $ " NOT RELEVANT, OnSpellHitHarry() returned false!");
-        }
-        return;
-      }
-      if ( bUseDebugMode )
-      {
-        PlayerHarry.ClientMessage("Spell: " $ string(self) $ " VALID Touch to Harry:" $ string(Other) $ " SpellCharge: " $ string(SpellCharge));
-      }
-      CreateHitEffects(Other,HitLocation);
-    } else //{
-      if ( Other.IsA('HPawn') )
-      {
-        if ( False == OnSpellHitHPawn(Other,HitLocation) )
-        {
-          if ( bUseDebugMode )
-          {
-            PlayerHarry.ClientMessage("Spell:" $ string(self.Name) $ " *INVALID* Touch to HPAWN:" $ string(Other.Name) $ " NOT RELEVANT, OnSpellHitHPawn() returned false!");
-          }
-          return;
-        }
-        if ( bUseDebugMode )
-        {
-          PlayerHarry.ClientMessage("Spell: " $ string(self) $ " VALID Touch to HPAWN:" $ string(Other) $ " SpellCharge: " $ string(SpellCharge));
-        }
-        HPawn(Other).OnSpellHit(self,HitLocation);
-        CreateHitEffects(Other,HitLocation);
-      } else //{
-        if ( Other.IsA('spellTrigger') )
-        {
-          if ( bUseDebugMode )
-          {
-            PlayerHarry.ClientMessage("Spell: " $ string(self) $ " VALID Touch to spellTrigger:" $ string(Other));
-          }
-          CreateHitEffects(Other,HitLocation);
-        } else {
-          if ( bUseDebugMode )
-          {
-            PlayerHarry.ClientMessage("Spell: " $ string(self) $ " Touched ***UNCLASSIFIED***:" $ string(Other));
-          }
-         }
-      // }
-    // }
-  // }
-  SetPhysics(PHYS_None);
-  OnSpellShutdown();
-  Destroy();
+	if ( bUseDebugMode )
+	{
+		PlayerHarry.ClientMessage("Spell::ProcessTouch : " $ string(self) $ " other :" $ string(Other));
+	}
+
+	if ( (Other == Owner) || Other.IsA('baseSpell') || Other.IsA('ParticleFX') )
+	{
+		if ( bUseDebugMode )
+		{
+			PlayerHarry.ClientMessage("Spell: " $ string(self) $ " *INVALID* Touch to :" $ string(Other) $ "will not die yet.");
+		}
+		return;
+	}
+	else if ( Other.IsA('harry') )
+	{
+		if ( False == OnSpellHitHarry(Other,HitLocation) )
+		{
+			if ( bUseDebugMode )
+			{
+				PlayerHarry.ClientMessage("Spell:" $ string(self.Name) $ " *INVALID* Touch to Harry:" $ string(Other.Name) $ " NOT RELEVANT, OnSpellHitHarry() returned false!");
+			}
+			
+			return;
+		}
+
+		if ( bUseDebugMode )
+		{
+			PlayerHarry.ClientMessage("Spell: " $ string(self) $ " VALID Touch to Harry:" $ string(Other) $ " SpellCharge: " $ string(SpellCharge));
+		}
+
+		CreateHitEffects(Other,HitLocation);
+	}
+	else if ( Other.IsA('HPawn') )
+	{
+		if ( False == OnSpellHitHPawn(Other,HitLocation) )
+		{
+			if ( bUseDebugMode )
+			{
+				PlayerHarry.ClientMessage("Spell:" $ string(self.Name) $ " *INVALID* Touch to HPAWN:" $ string(Other.Name) $ " NOT RELEVANT, OnSpellHitHPawn() returned false!");
+			}
+			return;
+		}
+		
+		if ( bUseDebugMode )
+		{
+			PlayerHarry.ClientMessage("Spell: " $ string(self) $ " VALID Touch to HPAWN:" $ string(Other) $ " SpellCharge: " $ string(SpellCharge));
+		}
+
+		HPawn(Other).OnSpellHit(self,HitLocation);
+		CreateHitEffects(Other,HitLocation);
+	}
+	else if ( Other.IsA('spellTrigger') )
+	{
+		if ( bUseDebugMode )
+		{
+			PlayerHarry.ClientMessage("Spell: " $ string(self) $ " VALID Touch to spellTrigger:" $ string(Other));
+		}
+
+		CreateHitEffects(Other,HitLocation);
+	}
+	else
+	{
+		if ( bUseDebugMode )
+		{
+			PlayerHarry.ClientMessage("Spell: " $ string(self) $ " Touched ***UNCLASSIFIED***:" $ string(Other));
+		}
+	}
+
+	SetPhysics(PHYS_None);
+	OnSpellShutdown();
+	Destroy();
 }
 
 static function Texture GetSpellIcon()
