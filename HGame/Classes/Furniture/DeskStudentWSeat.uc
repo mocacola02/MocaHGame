@@ -1,19 +1,21 @@
-//================================================================================
+//==========================================================================//
 // DeskStudentWSeat.
-//================================================================================
-
+//
+// Student desk with seat furniture actor.
+// 
+// Formatting, commenting, & documentation by Moca unless stated otherwise.
+//==========================================================================//
 class DeskStudentWSeat extends HFurniture;
 
 defaultproperties
 {
-    Mesh=SkeletalMesh'HProps.skDeskStudentWSeatMesh'
+	Mesh=SkeletalMesh'HProps.skDeskStudentWSeatMesh'
 
-    CollisionRadius=43.00
+	CollisionRadius=43.00
 
-    CollisionWidth=47.00
+	CollisionWidth=47.00
 
-    CollisionHeight=30.00
+	CollisionHeight=30.00
 
-    // CollideType=2
 	CollideType=CT_Box
 }
