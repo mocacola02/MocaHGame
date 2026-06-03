@@ -1,23 +1,66 @@
-//================================================================================
-// FireballLarge.
-//================================================================================
-
+//==========================================================================//
+// LargeFireball.
+//
+// Large fireball that explodes into smaller fireballs.
+// 
+// Formatting, commenting, & documentation by Moca unless stated otherwise.
+//==========================================================================//
 class FireballLarge extends HiddenHPawn;
 
-var bool bTouch;
-var float fLifetime;
-var(VisualFX) ParticleFX fxGrenadeParticleEffect;
-var float GrenadeRadius;
-var float GrenadeExplosionGravity;
-var float iDamage;
-var float smallDamage;
+var bool bTouch;					// Can we be touched
+var float fLifetime;				// How long we live
+var float GrenadeRadius;			// Radius of grenade explosion
+var float GrenadeExplosionGravity;	// Gravity force for grenade explosion
+var float iDamage;					// How much damage to deal
+var float smallDamage;				// How much damage small fireballs should deal
+var(VisualFX) ParticleFX fxGrenadeParticleEffect;	// Grenade particle actor
 
-function PostBeginPlay()
+
+//=========
+// Events
+//=========
+
+// Called after gameplay begins
+event PostBeginPlay()
 {
 	SetTimer(fLifetime,False);
 	fxGrenadeParticleEffect = Spawn(Class'Crabfire3');
 }
 
+// Called when timer times out, shoots fireballs
+event Timer()
+{
+	ShootFireballs();
+}
+
+// Called when touched by an actor
+event Touch (Actor Other)
+{
+	if ( Pawn(Other) == Instigator )
+	{
+		return;
+	}
+	if ( (Other == PlayerHarry) && (bTouch == True) )
+	{
+		Other.TakeDamage(iDamage,None,vect(0.00,0.00,0.00),vect(0.00,0.00,0.00),'None');
+		SetTimer(0.2,False);
+		bTouch = False;
+	}
+	PlaySound(Sound'spell_hit',SLOT_Interact,1.0,False,2000.0,1.0);
+}
+
+// Called when bumped by an actor, redirects to Touch
+event Bump (Actor Other)
+{
+	Touch(Other);
+}
+
+
+//======================
+// Projectile Handling
+//======================
+
+// Shoots smaller fireballs
 function ShootFireballs()
 {
 	local int I;
@@ -68,49 +111,34 @@ function ShootFireballs()
 	centerFire.iDamage 	= iDamage;
 }
 
-function Timer()
-{
-	ShootFireballs();
-}
 
-function Touch (Actor Other)
-{
-	if ( Pawn(Other) == Instigator )
-	{
-		return;
-	}
-	if ( (Other == PlayerHarry) && (bTouch == True) )
-	{
-		Other.TakeDamage(iDamage,None,vect(0.00,0.00,0.00),vect(0.00,0.00,0.00),'None');
-		SetTimer(0.2,False);
-		bTouch = False;
-	}
-	PlaySound(Sound'spell_hit',SLOT_Interact,1.0,False,2000.0,1.0);
-}
+//=========
+// States
+//=========
 
-function Bump (Actor Other)
-{
-	Touch(Other);
-}
-
+// Default begin state, does nothing
 auto state stateBegin
 {
 }
 
+
+//=====================
+// Default Properties
+//=====================
+
 defaultproperties
 {
-    bTouch=True
+	bTouch=True
 
-    fLifetime=2.50
+	fLifetime=2.50
 
-    DrawType=DT_None
+	DrawType=DT_None
 
-    CollisionRadius=10.00
+	CollisionRadius=10.00
 
-    CollisionHeight=10.00
+	CollisionHeight=10.00
 
-    bCollideActors=True
+	bCollideActors=True
 
-    bCollideWorld=True
-
+	bCollideWorld=True
 }
