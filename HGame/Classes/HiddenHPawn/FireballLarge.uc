@@ -64,7 +64,7 @@ event Bump (Actor Other)
 function ShootFireballs()
 {
 	local int I, NumFireballs;
-	local float GrenadeRadius, ratio;
+	local float GrenadeRadius, grenadeDamage, ratio;
 	local Vector fireball_locn, harrys_head, currentLoc;
 	local Rotator rotate_fireball, currentRot;
 	local Crabfire Fireball;

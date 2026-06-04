@@ -201,7 +201,7 @@ state SpawnSomeSpiders
 				spiderRotation 		= Rotation;
 
 				// Convert the spider's yaw from degrees to Unreal units
-				spiderYaw 			= theSpiders[randNum].iRotation * (16384 / 90.0);
+				spiderYaw 			= theSpiders[Counter].iRotation * (16384 / 90.0);
 
 				// Add spider yaw to spider's rotation
 				spiderRotation.Yaw += spiderYaw;
@@ -230,7 +230,7 @@ state SpawnSomeSpiders
 				spiderRotation 		= Rotation;
 
 				// Convert the spider's yaw from degrees to Unreal units
-				spiderYaw 			= theSpiders[randNum].iRotation * (16384 / 90.0);
+				spiderYaw 			= theSpiders[Counter].iRotation * (16384 / 90.0);
 
 				// Add spider yaw to spider's rotation
 				spiderRotation.Yaw += spiderYaw;

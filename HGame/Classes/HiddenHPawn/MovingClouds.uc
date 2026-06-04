@@ -208,7 +208,8 @@ function Vector FindLocationFromPath()
 function PatrolPoint FindNearestPatrolPoint (Vector Loc)
 {
 	local float fDist;
-	local float fClosestDist, vLocation;
+	local float fClosestDist;
+	local Vector vLocation;
 	local PatrolPoint tempPatrolPoint, ClosestPoint;
 
 	// Set location value to the given loc vector
