@@ -9,7 +9,7 @@ class FireballLarge extends HiddenHPawn;
 
 var bool bTouch;					// Can we be touched
 var float fLifetime;				// How long we live
-var float GrenadeRadius;			// Radius of grenade explosion
+var float GrenadeRadius;			// Radius to activate the grenade from
 var float GrenadeExplosionGravity;	// Gravity force for grenade explosion
 var float iDamage;					// How much damage to deal
 var float smallDamage;				// How much damage small fireballs should deal
@@ -42,7 +42,7 @@ event Touch (Actor Other)
 	}
 	if ( (Other == PlayerHarry) && (bTouch == True) )
 	{
-		Other.TakeDamage(iDamage,None,vect(0.00,0.00,0.00),vect(0.00,0.00,0.00),'None');
+		Other.TakeDamage(iDamage,None,vect(0.0,0.0,0.0),vect(0.0,0.0,0.0),'None');
 		SetTimer(0.2,False);
 		bTouch = False;
 	}
@@ -63,51 +63,85 @@ event Bump (Actor Other)
 // Shoots smaller fireballs
 function ShootFireballs()
 {
-	local int I;
+	local int I, NumFireballs;
+	local float GrenadeRadius, ratio;
+	local Vector fireball_locn, harrys_head, currentLoc;
+	local Rotator rotate_fireball, currentRot;
 	local Crabfire Fireball;
-	local spellFireSmall smallFire;
 	local FireballGrenadeCenter centerFire;
-	local int NumFireballs;
-	local Rotator rotate_fireball;
-	local Vector fireball_locn;
-	local Vector harrys_head;
-	local Vector currentLoc;
-	local Rotator currentRot;
-	local float grenadeDamage;
-	local float ratio;
-
+	local spellFireSmall smallFire;
+	
+	// Set head position to Harry's location
 	harrys_head 			= PlayerHarry.Location;
+
+	// Add Harry's half height so we're positioned at his head
 	harrys_head.Z 	   	   += PlayerHarry.CollisionHeight / 2;
+
+	// Set number of fireballs to spawn to 10
 	NumFireballs 			= 10;
+
+	// Set fireball rotation to face harry's head
 	rotate_fireball 		= rotator(harrys_head - Location);
+
+	// Zero out the rotation roll
 	rotate_fireball.Roll 	= 0;
+
+	// Increase pitch by 163840 rotation units (aka 2.5 full rotations... instead of just rotating 0.5 rotations... what were you doing KW, this is horrendous)
 	rotate_fireball.Pitch  += (65536 * 10) / 4;
+
+	// The distance between us and Harry is less than the grenade radius
 	if ( VSize(PlayerHarry.Location - Location) < GrenadeRadius )
 	{
+		// Shake the camera
 		PlayerHarry.ShakeView(0.3,200.0,200.0);
+
+		// Get a ratio based on how close Harry is to us (the further Harry is in our radius, the larger ratio is)
 		ratio 			= VSize(PlayerHarry.Location - Location) / GrenadeRadius;
+
+		// Set damage to be our base damage minus our base damage times the ratio is, aka decrease damage based on how far Harry is
 		grenadeDamage 	= iDamage - (iDamage * ratio);
-		PlayerHarry.TakeDamage(grenadeDamage,None,vect(0.00,0.00,0.00),vect(0.00,0.00,0.00),'None');
+
+		// Deal damage to Harry
+		PlayerHarry.TakeDamage(grenadeDamage,None,vect(0.0,0.0,0.0),vect(0.0,0.0,0.0),'None');
 	}
+
+	// For each fireball we want to spawn (10 of them)
 	for(i = 0; i < NumFireballs; i++)
 	{
+		// Rotate fireball around a full rotation and add random variation
 		rotate_fireball.Yaw 				= (65536 / NumFireballs) * I + Rand(10000);
+
+		// Set fireball location 5 units above our current position
 		fireball_locn 						= Location + vect(0.00,0.00,5.00);
+
+		// Spawn a small fireball
 		smallFire 							= Spawn(Class'spellFireSmall',Owner,,fireball_locn,rotate_fireball);
+
+		// Set the new fireball's damage to our desired small damage
 		smallFire.iDamage 					= smallDamage;
+
+		// Set the new fireball's gravity to our desired explosion gravity
 		smallFire.GrenadeExplosionGravity 	= GrenadeExplosionGravity;
 	}
 	
+	// Set current location to the old location
 	currentLoc = OldLocation;
+
+	// Set current rotation to our rotation
 	currentRot = Rotation;
+
+	// Shutdown the grenade particles
 	fxGrenadeParticleEffect.Shutdown();
+
+	// Destroy self, not sure why we're calling before spawning the center
 	Destroy();
 	
-	for(i = 0; i < NumFireballs * 2; i++)
-	{
-		// Metallicafan212:	There probably was some code here at some point, but it got commented out
-	}
+	// There used to be an empty for loop here, I removed it for cleanliness. See older version if needed.
+
+	// Spawn the grenade center
 	centerFire 			= Spawn(Class'FireballGrenadeCenter',Owner,,currentLoc,currentRot);
+
+	// Set the grenade center's damage
 	centerFire.iDamage 	= iDamage;
 }
 

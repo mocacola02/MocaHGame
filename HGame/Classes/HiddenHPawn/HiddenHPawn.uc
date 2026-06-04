@@ -1,47 +1,71 @@
-//================================================================================
+//==========================================================================//
 // HiddenHPawn.
-//================================================================================
-
+//
+// Category class for invisible HPawn actors.
+// 
+// Formatting, commenting, & documentation by Moca unless stated otherwise.
+//==========================================================================//
 class HiddenHPawn extends HPawn;
 
-//texture import -AdamJD
+//= Imports =//
 #exec Texture Import File=Textures\HiddenPawn.PNG Name=HiddenPawn COMPRESSION=P8 UPSCALE=1 Mips=0 Flags=2
 
-var bool bShowHiddenPawns;
+//= General Variables =//
+var bool bShowHiddenPawns;	// Should this HiddenHPawn be visible
 
-function PreBeginPlay()
+
+//=========
+// Events
+//=========
+
+// Called before gameplay starts
+event PreBeginPlay()
 {
+	// Call parent behavior
 	Super.PreBeginPlay();
-	SetCollision(,);
+
+	// Disable all collision
+	SetCollision();
 	bCollideWorld = False;
+
+	// If we should be shown
 	if ( bShowHiddenPawns )
 	{
-		bHidden 	= False;
-		DrawType 	= DT_Sprite;
-		Style 		= STY_Normal;
+		// Do not be hidden
+		bHidden = False;
+
+		// Draw as a sprite
+		DrawType= DT_Sprite;
+
+		// Use normal style
+		Style 	= STY_Normal;
 	}
 }
 
+
+//=====================
+// Default Properties
+//=====================
+
 defaultproperties
 {
-    bHidden=True
+	bHidden=True
 
-    DrawType=DT_Sprite
+	DrawType=DT_Sprite
 
-    Texture=Texture'HGame.HiddenPawn'
+	Texture=Texture'HGame.HiddenPawn'
 
-    Mesh=None
+	Mesh=None
 
-    CollisionRadius=2.00
+	CollisionRadius=2.00
 
-    CollisionHeight=2.00
+	CollisionHeight=2.00
 
-    bCollideActors=False
+	bCollideActors=False
 
-    bCollideWorld=False
+	bCollideWorld=False
 
-    bBlockActors=False
+	bBlockActors=False
 
-    bBlockPlayers=False
-
+	bBlockPlayers=False
 }

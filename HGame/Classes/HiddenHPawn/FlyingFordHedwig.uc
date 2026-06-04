@@ -1,14 +1,26 @@
-//================================================================================
+//==========================================================================//
 // FlyingFordHedwig.
-//================================================================================
-
+//
+// Hedwig actor intended for use during the scrapped Flying Ford mini-game.
+// 
+// Formatting, commenting, & documentation by Moca unless stated otherwise.
+//==========================================================================//
 class FlyingFordHedwig extends HiddenHPawn;
 
-const BOOL_DEBUG_AI= false;
-var bool bTouch;
-var Director Director;
+//= Consts =//
+const BOOL_DEBUG_AI= false;	// Should debug logging be printed
 
-function PostBeginPlay()
+//= General Variables =//
+var bool bTouch;		// Are we being touched
+var Director Director;	// Reference to Director
+
+
+//=========
+// Events
+//=========
+
+// Called after gameplay starts, searches for and sets director ref
+event PostBeginPlay()
 {
 	foreach AllActors(Class'Director',Director)
 	{
@@ -16,49 +28,65 @@ function PostBeginPlay()
 	}
 }
 
-function Touch (Actor Other)
+// Called when touched by an actor
+event Touch (Actor Other)
 {
+	// If we're not being touched
 	if ( !bTouch )
 	{
+		// Set that we're being touched
 		bTouch = True;
+
+		// Call touch event on director
 		Director.OnTouchEvent(self,Other);
 	}
 }
 
-function UnTouch (Actor Other)
+// Called when untouched by an actor
+event UnTouch (Actor Other)
 {
+	// Set that we're no longer touched
 	bTouch = False;
+
+	// Call untouch event on director
 	Director.OnUnTouchEvent(self,Other);
 }
 
-function Bump (Actor Other)
+// Called when bumped by an actor
+event Bump (Actor Other)
 {
+	// If in debug mode, log that we've been bumped
 	if ( BOOL_DEBUG_AI )
 	{
 		PlayerHarry.ClientMessage("I have been bumped ");
 	}
+
+	// Redirect to Touch
 	Touch(Other);
 }
 
+
+//=====================
+// Default Properties
+//=====================
+
 defaultproperties
 {
-    bHidden=False
+	bHidden=False
 
-    bTrailerSameRotation=True
+	bTrailerSameRotation=True
 
-    bTrailerPrePivot=True
+	bTrailerPrePivot=True
 
-    //Tag=''
-	//fix for KW using '' instead of "" and added the name (to be compatible with the new engine) -AdamJD
-    Tag="FlyingFordHedwig"
+	Tag="FlyingFordHedwig"
 
-    DrawType=DT_Mesh
+	DrawType=DT_Mesh
 
-    Mesh=SkeletalMesh'HPModels.skowlbarnMesh'
+	Mesh=SkeletalMesh'HPModels.skowlbarnMesh'
 
-    DrawScale=1.20
+	DrawScale=1.20
 
-    CollisionRadius=35.00
+	CollisionRadius=35.00
 
-    CollisionHeight=32.00
+	CollisionHeight=32.00
 }
