@@ -1,20 +1,17 @@
-//================================================================================
+//==========================================================================//
 // baseHUD.
-//================================================================================
-
+//
+// Base HUD class. Almost entirely unused HP1 leftovers.
+//
+// Note: 	Effectively unused means that the variable is used in code
+// 			somewhere, but said code is never actually called by anything.
+// 
+// Formatting, commenting, & documentation by Moca unless stated otherwise.
+//==========================================================================//
 class baseHUD extends HUD
   Config(User);
 
-// Metallicafan212:	Add in the font imports
-/*
-#exec new TrueTypeFontFactory Name=HugeInkFont FontName="Times New Roman" Xpad=2 Height=24 AntiAlias=0 CharactersPerPage=32 
-#exec new TrueTypeFontFactory Name=BigInkFont FontName="Times New Roman" Height=18 AntiAlias=0 CharactersPerPage=32 
-#exec new TrueTypeFontFactory Name=MedInkFont FontName="Times New Roman" Height=14 AntiAlias=0 CharactersPerPage=32 
-#exec new TrueTypeFontFactory Name=SmallInkFont FontName="Times New Roman" Height=12 AntiAlias=0 CharactersPerPage=32 
-#exec new TrueTypeFontFactory Name=TinyInkFont FontName="Times New Roman" Height=10 AntiAlias=0 CharactersPerPage=32 
-*/
-
-// Metallicafan212:	Make the fonts native
+//= Imports ==/
 #exec new TrueTypeFontFactory Name=HugeInkFont 	FontName="Times New Roman" Height=24 AntiAlias=1 CharactersPerPage=32 RenderNative=1
 #exec new TrueTypeFontFactory Name=BigInkFont 	FontName="Times New Roman" Height=18 AntiAlias=1 CharactersPerPage=32 RenderNative=1
 #exec new TrueTypeFontFactory Name=MedInkFont 	FontName="Times New Roman" Height=14 AntiAlias=1 CharactersPerPage=32 RenderNative=1
@@ -41,47 +38,59 @@ class baseHUD extends HUD
 #exec new TrueTypeFontFactory Name=ThaiFontMed FontName="Tahoma" Height=18 AntiAlias=0 RenderNative=1 CharactersPerPage=64 
 #exec new TrueTypeFontFactory Name=ThaiFontSmall FontName="Tahoma" Height=14 AntiAlias=0 RenderNative=1 CharactersPerPage=64 
 
-struct IconMessage
+//= General HUD =//
+enum _HUDGameType 	// Type of game HUD to use. HP1 leftover/unused
 {
-  var bool valid;
-  var Texture Icon;
-  var string Message;
-  var float duration;
+	HUDG_QUIDDITCH,	// Quidditch game type
+	HUDG_FLYINGKEYS	// Flying keys game type (HP1 leftover)
 };
 
-enum _HUDGameType 
+struct IconMessage		// Icon message struct. HP1 leftover/unused
 {
-	HUDG_QUIDDITCH,
-	HUDG_FLYINGKEYS
+	var bool valid;		// Is this a valid icon
+	var Texture Icon;	// Icon texture
+	var string Message;	// Message to go with icon
+	var float duration;	// Message duration
 };
 
-var bool bCutSceneMode;
-var bool bCutPopupMode;
-var bool bDrawDialogText;
-var _HUDGameType HUDGameType;
-var IconMessage curIconMessage;
-var basePopup curPopup;
-var string DebugString;
-var int DebugValA;
-var int DebugValX;
-var int DebugValY;
-var int DebugValZ;
-var string DebugString2;
-var int DebugValA2;
-var int DebugValX2;
-var int DebugValY2;
-var int DebugValZ2;
-var bool bScoreCountup;
-var float fScoreCountTime;
-var float fMaxScoreCountTime;
-var bool bPlayQHUDGame;
+var bool bCutSceneMode;			// Are we in cutscene mode?
+var bool bCutPopupMode;			// Are we in cutscene pop up mode? aka only the bottom cutscene border is up
+var bool bDrawDialogText;		// Are we drawing dialog text? Effectively unused
 
-event Tick (float fDeltaTime)
+var basePopup curPopup;			// Current pop up, only used by the HP1 leftover WarnTrigger
+var IconMessage curIconMessage;	// Current icon message, effectively unused
+var _HUDGameType HUDGameType;	// Current HUD game type, effectively unused
+
+//= Debug Text =//
+var int DebugValA, DebugValX, DebugValY, DebugValZ;		// Debug values to display, effectively unused
+var string DebugString;									// Final debug string formed from values, effectively unused
+
+var int DebugValA2, DebugValX2, DebugValY2, DebugValZ2; // Secondary debug values to display, effectively unused
+var string DebugString2;								// Final secondary debug string formed from values, effectively unused
+
+//= Quidditch =//
+var bool bPlayQHUDGame;			// Are we playing quidditch game, effectively unused
+var bool bScoreCountup;			// Should we count down the score time, while technically used it doesn't really do anything
+var float fScoreCountTime;		// Current score count time, while technically used it doesn't really do anything
+var float fMaxScoreCountTime;	// Max allowed score count time, effectively unused
+
+
+//=========
+// Events
+//=========
+
+// On tick
+event Tick(float DeltaTime)
 {
-	Super.Tick(fDeltaTime);
+	Super.Tick(DeltaTime);
+
+	// If we have a valid icon message
 	if ( curIconMessage.valid )
 	{
-		curIconMessage.duration -= fDeltaTime;
+		// Decrease its duration
+		curIconMessage.duration -= DeltaTime;
+
+		// If duration is less than 0, make it invalid
 		if ( curIconMessage.duration < 0 )
 		{
 			curIconMessage.valid = False;
@@ -89,23 +98,29 @@ event Tick (float fDeltaTime)
 	}
 }
 
-function SetScoreCountTime (float t)
+// Setup the HUD
+simulated function HUDSetup(Canvas Canvas)
 {
-	fScoreCountTime = t;
-	fMaxScoreCountTime = t;
+	// Reset the canvas
+	Canvas.Reset();
+
+	// Set X spacing to 0.0
+	Canvas.SpaceX 		= 0.0;
+
+	// Do not disable texture filtering on canvas elements (this is set to true in stock)
+	Canvas.bNoSmooth 	= False;
+
+	// Set draw color to be white
+	Canvas.DrawColor.R 	= 255;
+	Canvas.DrawColor.G 	= 255;
+	Canvas.DrawColor.B 	= 255;
+
+	// Set font to be the medium font
+	Canvas.Font		 	= baseConsole(PlayerPawn(Owner).Player.Console).LocalMedFont;
 }
 
-function PlayHUDGame (bool bEnable)
-{
-	bPlayQHUDGame = bEnable;
-}
-
-function SetHUDGameType (_HUDGameType GameType)
-{
-	HUDGameType = GameType;
-}
-
-function DrawDebug (Canvas Canvas)
+// Draw debugs info. Unused
+function DrawDebug(Canvas Canvas)
 {
 	Canvas.SetPos(8.0, Canvas.SizeY - 240);
 	Canvas.DrawText("Text " $ DebugString, False);
@@ -129,11 +144,37 @@ function DrawDebug (Canvas Canvas)
 	Canvas.DrawText("ValZ " $ string(DebugValZ2),False);
 }
 
+//=========
+// Pop Up
+//=========
+// This section is all unused HP1 leftovers
+
+// Draws the current pop up. Only used by baseWarning
+function DrawPopup (Canvas Canvas)
+{
+	// If we don't have a current pop up, do nothing and return
+	if ( curPopup == None )
+	{
+		return;
+	}
+
+	// Draw the pop up
+	curPopup.Draw(Canvas);
+
+	// If the current pop up is set to be deleted, clear the reference
+	if ( curPopup.bDeleteMe )
+	{
+		curPopup = None;
+	}
+}
+
+// Spawns a pop up of a given basePopup class
 function ShowPopup (Class<basePopup> popup)
 {
 	curPopup = Spawn(popup);
 }
 
+// Destroy the current pop up, if there is one
 function DestroyPopup()
 {
 	if ( curPopup != None )
@@ -143,19 +184,38 @@ function DestroyPopup()
 	}
 }
 
-function DrawPopup (Canvas Canvas)
+
+//================
+// Mini-Game HUD
+//================
+// This section is all unused HP1 leftovers
+
+// Sets the score count time to a given time
+function SetScoreCountTime (float t)
 {
-	if ( curPopup == None )
-	{
-		return;
-	}
-	curPopup.Draw(Canvas);
-	if ( curPopup.bDeleteMe )
-	{
-		curPopup = None;
-	}
+	fScoreCountTime = t;
+	fMaxScoreCountTime = t;
 }
 
+// Sets whether or not we're playing a quidditch game
+function PlayHUDGame (bool bEnable)
+{
+	bPlayQHUDGame = bEnable;
+}
+
+// Set the game type of the HUD
+function SetHUDGameType (_HUDGameType GameType)
+{
+	HUDGameType = GameType;
+}
+
+
+//=====================
+// Misc. HUD Elements
+//=====================
+
+// Set the current icon message's icon, message, and duration, and make it valid
+// This function is called in Harry, but by an unused function
 function ReceiveIconMessage (Texture Icon, string Message, float duration)
 {
 	curIconMessage.Icon 	= Icon;
@@ -164,25 +224,19 @@ function ReceiveIconMessage (Texture Icon, string Message, float duration)
 	curIconMessage.valid 	= True;
 }
 
-simulated function HUDSetup (Canvas Canvas)
-{
-	Canvas.Reset();
-	Canvas.SpaceX 		= 0.0;
-	// Metallicafan212:	We're going to do more high quality stuff, so disable by default
-	Canvas.bNoSmooth 	= False;//True;
-	Canvas.DrawColor.R 	= 255;
-	Canvas.DrawColor.G 	= 255;
-	Canvas.DrawColor.B 	= 255;
-	Canvas.Font		 	= baseConsole(PlayerPawn(Owner).Player.Console).LocalMedFont;
-}
-
+// Toggles the dialog text border
+// Never used, but can be typed into the command console
 exec function ToggleDialog()
 {
 	bDrawDialogText =  !bDrawDialogText;
 }
 
+
+//=====================
+// Default Properties
+//=====================
+
 defaultproperties
 {
-    bDrawDialogText=True
-
+	bDrawDialogText=True
 }
