@@ -1,130 +1,186 @@
-//================================================================================
+//==========================================================================//
 // StatusManager.
-//================================================================================
-
+//
+// HUD item class for displaying StatusGroup item counts.
+// 
+// Formatting, commenting, & documentation by Moca unless stated otherwise.
+//==========================================================================//
 class StatusManager extends HudItemManager;
 
-const nTOTAL_WIZARD_CARDS= 101;
-var StatusGroup sgList;
-var int nCanvasSizeX;
-var int nCanvasSizeY;
-var harry PlayerHarry;
+//= Constants =//
+const nTOTAL_WIZARD_CARDS= 101;	// Total number of wizard cards
+
+//= General Variables =//
+var int nCanvasSizeX;	// Canvas size X
+var int nCanvasSizeY;	// Canvas size Y
+var harry PlayerHarry;	// Ref to Harry
+var StatusGroup sgList;	// Current StatusGroup list
 
 
+//=========
+// Events
+//=========
+
+// Called before gameplay starts
 event PreBeginPlay()
 {
-  Super.PreBeginPlay();
-  sgList = None;
-  nCanvasSizeX = 0;
-  nCanvasSizeY = 0;
+	// Call parent behavior
+	Super.PreBeginPlay();
+
+	// Clear current StatusGroup
+	sgList = None;
+
+	// Set size to 0
+	nCanvasSizeX = 0;
+	nCanvasSizeY = 0;
 }
 
+// Render HUD items
 function RenderHudItemManager (Canvas Canvas, bool bMenuMode, bool bFullCutMode, bool bHalfCutMode)
 {
-  local StatusGroup sgLoop;
+	local StatusGroup sgLoop;
 
-  nCanvasSizeX = Canvas.SizeX;
-  nCanvasSizeY = Canvas.SizeY;
-// JL0033:
-  // sgLoop = sgList;
-  // if ( sgLoop != None )
-  for(sgLoop = sgList; sgLoop != None; sgLoop = sgLoop.sgNext)
-  {
-    sgLoop.RenderHudItemManager(Canvas,bMenuMode,bFullCutMode,bHalfCutMode);
-    // sgLoop = sgLoop.sgNext;
-    // goto JL0033;
-  }
+	// Set canvas size to the current canvas size
+	nCanvasSizeX = Canvas.SizeX;
+	nCanvasSizeY = Canvas.SizeY;
+
+	// For each StatusGroup in list, render it
+	for(sgLoop = sgList; sgLoop != None; sgLoop = sgLoop.sgNext)
+	{
+		sgLoop.RenderHudItemManager(Canvas,bMenuMode,bFullCutMode,bHalfCutMode);
+	}
 }
 
+// Handle item pickup
 function PickupItem (HProp Prop)
 {
-  local StatusGroup sgUpdate;
-  local StatusItem siUpdate;
-  local Actor actorTemp;
-  local int nOthersInLevel;
+	local int nOthersInLevel;
+	local Actor actorTemp;
+	local StatusGroup sgUpdate;
+	local StatusItem siUpdate;
 
-  if ( (Prop.classStatusGroup == None) || (Prop.classStatusItem == None) )
-  {
-    return;
-  }
-  sgUpdate = GetStatusGroup(Prop.classStatusGroup);
-  if ( sgUpdate != None )
-  {
-    siUpdate = sgUpdate.GetStatusItem(Prop.classStatusItem);
-    if ( (siUpdate != None) && (siUpdate.bDisplayMaxCount == True) && (siUpdate.nCount == 0) )
-    {
-      nOthersInLevel = 0;
-      foreach AllActors(Prop.Class,actorTemp)
-      {
-        nOthersInLevel++;
-      }
-      siUpdate.nMaxCount = nOthersInLevel;
-    }
-    sgUpdate.IncrementCount(Prop.classStatusItem,Prop.nPickupIncrement);
-  }
+	// If prop has no StatusGroup or StatusItem, do nothing and return
+	if ( (Prop.classStatusGroup == None) || (Prop.classStatusItem == None) )
+	{
+		return;
+	}
+
+	// Get prop's StatusGroup
+	sgUpdate = GetStatusGroup(Prop.classStatusGroup);
+
+	// If we have a StatusGroup
+	if ( sgUpdate != None )
+	{
+		// Get prop's StatusItem
+		siUpdate = sgUpdate.GetStatusItem(Prop.classStatusItem);
+
+		// If we have a StatusItem AND we should should max count AND StatusItem count is 0
+		if ( (siUpdate != None) && (siUpdate.bDisplayMaxCount == True) && (siUpdate.nCount == 0) )
+		{
+			// Set others in level to 0
+			nOthersInLevel = 0;
+
+			// For each actor of the same class as prop, increment others in level count
+			foreach AllActors(Prop.Class, actorTemp)
+			{
+				nOthersInLevel++;
+			}
+
+			// Set max count to the count of others in level
+			siUpdate.nMaxCount = nOthersInLevel;
+		}
+
+		// Increment collected count
+		sgUpdate.IncrementCount(Prop.classStatusItem, Prop.nPickupIncrement);
+	}
 }
 
+// Drop off an item
 function DropOffItem (HProp Prop)
 {
-  local StatusGroup sgUpdate;
+	local StatusGroup sgUpdate;
 
-  if ( (Prop.classStatusGroup == None) || (Prop.classStatusItem == None) )
-  {
-    return;
-  }
-  sgUpdate = GetStatusGroup(Prop.classStatusGroup);
-  if ( sgUpdate != None )
-  {
-    sgUpdate.IncrementCount(Prop.classStatusItem, -Prop.nPickupIncrement);
-  }
+	// If prop has no StatusGroup or StatusItem, do nothing and return
+	if ( (Prop.classStatusGroup == None) || (Prop.classStatusItem == None) )
+	{
+		return;
+	}
+
+	// Get prop's StatusGroup
+	sgUpdate = GetStatusGroup(Prop.classStatusGroup);
+
+	// If we have a StatusGroup
+	if ( sgUpdate != None )
+	{
+		// Increment count by the negated pickup increment of the prop, effectively decrementing count
+		sgUpdate.IncrementCount(Prop.classStatusItem, -Prop.nPickupIncrement);
+	}
 }
 
+// Increments StatusGroup count by a given number
 function IncrementCount (Class<StatusGroup> classGroup, Class<StatusItem> classItem, int nNum)
 {
-  local StatusGroup sgUpdate;
-  local StatusItem siUpdate;
+	local StatusGroup sgUpdate;
+	local StatusItem siUpdate;
 
-  sgUpdate = GetStatusGroup(classGroup);
-  if ( sgUpdate != None )
-  {
-    sgUpdate.IncrementCount(classItem,nNum);
-  }
+	// Get StatusGroup from class
+	sgUpdate = GetStatusGroup(classGroup);
+
+	// If we have a StatusGroup, increment count by nNum
+	if ( sgUpdate != None )
+	{
+		sgUpdate.IncrementCount(classItem,nNum);
+	}
 }
 
+// Sets count of a StatusItem to a given number
 function SetCount (Class<StatusGroup> classGroup, Class<StatusItem> classItem, int nNum)
 {
-  local StatusItem siUpdate;
+	local StatusItem siUpdate;
 
-  siUpdate = GetStatusItem(classGroup,classItem);
-  if ( siUpdate != None )
-  {
-    siUpdate.SetCount(nNum);
-  }
+	// Get StatusItem from class
+	siUpdate = GetStatusItem(classGroup,classItem);
+
+	// If we have a StatusItem, set its count to nNum
+	if ( siUpdate != None )
+	{
+		siUpdate.SetCount(nNum);
+	}
 }
 
+// Increments the count potential
 function IncrementCountPotential (Class<StatusGroup> classGroup, Class<StatusItem> classItem, int nNum)
 {
-  local StatusGroup sgUpdate;
-  local StatusItem siUpdate;
+	local StatusGroup sgUpdate;
+	local StatusItem siUpdate;
 
-  sgUpdate = GetStatusGroup(classGroup);
-  if ( sgUpdate != None )
-  {
-    sgUpdate.IncrementCountPotential(classItem,nNum);
-  }
+	// Get StatusGroup from class
+	sgUpdate = GetStatusGroup(classGroup);
+
+	// If we have a StatusGroup, increment the count potential by nNum
+	if ( sgUpdate != None )
+	{
+		sgUpdate.IncrementCountPotential(classItem,nNum);
+	}
 }
 
+// Returns the HUD location vector
 function Vector GetHudLocation (HProp Prop)
 {
-  local StatusGroup sg;
+	local StatusGroup sg;
 
-  if ( (Prop.classStatusGroup == None) || (Prop.classStatusItem == None) )
-  {
-    Log("Error: StatusManager data not setup correctly for " $ string(Prop.Class));
-    return vect(0.00,0.00,0.00);
-  }
-  sg = GetStatusGroup(Prop.classStatusGroup);
-  return sg.GetItemLocation(Prop.classStatusItem,False);
+	// If prop has no StatusGroup or StatusItem, log error and return (0, 0, 0)
+	if ( (Prop.classStatusGroup == None) || (Prop.classStatusItem == None) )
+	{
+		Log("Error: StatusManager data not setup correctly for " $ string(Prop.Class));
+		return vect(0.0, 0.0, 0.0);
+	}
+
+	// Get StatusGroup from prop
+	sg = GetStatusGroup(Prop.classStatusGroup);
+
+	// Return the item location
+	return sg.GetItemLocation(Prop.classStatusItem,False);
 }
 
 function StatusItem GetStatusItem (Class<StatusGroup> classGroup, Class<StatusItem> classItem)
