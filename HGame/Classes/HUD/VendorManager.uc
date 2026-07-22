@@ -1,10 +1,13 @@
-//================================================================================
+//==========================================================================//
 // VendorManager.
-//================================================================================
+//
+// HUD item class for managing and displaying vendor item info.
+// 
+// Formatting, commenting, & documentation by Moca unless stated otherwise.
+//==========================================================================//
+class VendorManager extends HudItemManager;
 
-// Metallicafan212:	No reason to not organize it
-class VendorManager extends HudItemManager;//Actor;
-
+//= Texture Constants =//
 const strVENDORBAR_LEFT= "HP2_Menu.Icons.HP2VendorBarLeft";
 const strVENDORBAR_RIGHT= "HP2_Menu.Icons.HP2VendorBarRight";
 const strVENDORBAR_BUTTON_NORMAL= "HP2_Menu.Icons.HP2ConfirmYes";
@@ -16,8 +19,12 @@ const strVENDORITEM_WBARK= "HP2_Menu.Icons.HP2VendorWBark";
 const strVENDORITEM_SILVERCARD= "HP2_Menu.Icons.HP2VendorSilverCard";
 const strVENDORITEM_BRONZECARD= "HP2_Menu.Icons.HP2VendorBronzeCard";
 const strVENDORITEM_WIZDUEL= "HP2_Menu.Icons.HP2VendorWizDuel";
+
+//= String ID Constants =//
 const strID_YES= "Shared_Menu_0003";
 const strID_NO= "Shared_Menu_0004";
+
+//= HUD Sizing Constants =//
 const fVENDORBAR_W= 366.0;
 const fVENDORBAR_Y= 20.0;
 const fVENDORBAR_PRICE_X= 76.0;
@@ -32,6 +39,8 @@ const fVENDORBAR_PURCHASE_ITEM_X= 155.0;
 const fVENDORBAR_PURCHASE_ITEM_Y= 14.0;
 const fVENDORBAR_BUTTON_TEXT_X= 46.0;
 const fVENDORBAR_BUTTON_TEXT_Y= 12.0;
+
+//= Cutscene Constants =//
 const strQUESTION_ANIM_PARAM= " startanim=talk_question";
 const strBOTHHANDS_ANIM_PARAM= " startanim=talk_bothhands";
 const strLEFTHAND_ANIM_PARAM= " startanim=talk_lhand";
@@ -58,15 +67,21 @@ const strCUE_RAN_OUT_OF_BEANS= "_RanOutOfBeans";
 const strCUE_OUT_OF_STOCK= "_OutOfStock";
 const strTEMP_VENDOR_CUT_NAME= "TempVendorCutName";
 
+//= Texture References =//
 var Texture textureVendorBarLeft;
 var Texture textureVendorBarRight;
 var Texture textureVendorButtonNormal;
 var Texture textureVendorButtonOver;
 var Texture textureItemToSell;
+
+//= Actor References
 var Characters Vendor;
 
-// Metallicafan212:	Prevent a stutter by caching the Weasley twin (to be compatible with the new engine)
+// Metallicafan212: Prevent a stutter by caching the Weasley twin (to be compatible with the new engine)
 var Characters WeasTwin;
+var Characters WeasleyTwin;
+
+var StatusManager managerStatus;
 
 var name nameVendorSavedState;
 var string strVendorSavedCutName;
@@ -74,54 +89,67 @@ var int nLastButtonYes;
 var int nLastButtonNo;
 var int nItemsBoughtInCurrTransaction;
 var int nCurrPrice;
-var StatusManager managerStatus;
+
 // Metallicafan212:	2025, HOLY SHIT guys, what is wrong with you?
 //					This was ANOTHER transient save issue. Canvas is not suppost to be set to actor properties, let alone persistent actors!
-var Transient Canvas VendorCanvas;
-var int I;
-var Characters WeasleyTwin;
-var int nSubtractBeans;
-var float fTicksPerSec;
-var float fTickDelta;
-var int nMinusBeansPerTick;
-var string strYes;
-var string strNo;
+var Transient Canvas VendorCanvas;	// Canvas to render to
 
-// Metallicafan212:	So we can quickly update the hover shit...
-var float HScale;
+//= General Variables =//
+var int I;					// Loop increment value
+var int nSubtractBeans;		// How many beans to subtract from player's bean count
+var float fTicksPerSec;		// Number of ticks per second
+var float fTickDelta;		// Tick delta time
+var float HScale;	// UI height scale
+var int nMinusBeansPerTick;	// How many beans to remove per tick after buying something
+var string strYes;			// Yes text string
+var string strNo;			// No text string
 
+
+
+//=========
+// Events
+//=========
+
+event PlayerInput (float DeltaTime);
+
+// Sets the Vendor reference
 function SetVendor (Characters V)
 {
+	// Set vendor reference to given character
 	Vendor 		= V;
+
 	// Metallicafan212:	Added to prevent against stutter with Fred and George (to be compatible with the new engine)
 	WeasTwin 	= Vendor.GetWeasleyTwin();
 }
 
-event PlayerInput (float DeltaTime)
-{
-}
-
+// Handles vendor engagement
 function DoEngageVendor (name nameSaveState)
 {
 	local StatusGroup sgJellyBeans;
 	local string strItemTexture;
 
+	// Set saved state as the given state
 	nameVendorSavedState = nameSaveState;
+
+	// If the vendor has a blank cutname, set the saved cutname as the vendor's cutname
 	if ( Vendor.CutName == "" )
 	{
 		strVendorSavedCutName = Vendor.CutName;
 	}
+
+	// Set cutname to the temporary cutname
 	Vendor.CutName = strTEMP_VENDOR_CUT_NAME;
+
+	// If no left bar texture is defined
 	if ( textureVendorBarLeft == None )
 	{
-		//log("Loading textureVendorBarLeft");
+		// Load default constant texture for each bar portion
 		textureVendorBarLeft 		= Texture(DynamicLoadObject(strVENDORBAR_LEFT,Class'Texture'));
-		//log(textureVendorBarLeft.name);
-		//log("Loading textureVendorBarRight");
 		textureVendorBarRight 		= Texture(DynamicLoadObject(strVENDORBAR_RIGHT,Class'Texture'));
-		//log(textureVendorBarRight.name);
 		textureVendorButtonNormal 	= Texture(DynamicLoadObject(strVENDORBAR_BUTTON_NORMAL,Class'Texture'));
 		textureVendorButtonOver 	= Texture(DynamicLoadObject(strVENDORBAR_BUTTON_OVER,Class'Texture'));
+
+		// Set the proper item texture based on what the vendor is selling
 		switch (Vendor.CharacterSells)
 		{
 			case Vendor.ESells.Sells_Nimbus2001:
@@ -148,31 +176,51 @@ function DoEngageVendor (name nameSaveState)
 			default:
 				break;
 		}
+
+		// Load the determined item texture
 		textureItemToSell = Texture(DynamicLoadObject(strItemTexture,Class'Texture'));
 	}
+
+	// Localize the Yes and No strings
 	strYes = Localize("All",strID_YES,"HPMenu");
 	strNo = Localize("All",strID_NO,"HPMenu");
 	
+	// Register self as the vendor manager in the HUD
 	HPHud(harry(Level.PlayerHarryActor).myHUD).RegisterVendorManager(self);
+	
+	// Tell Harry to start vendor engagement
 	harry(Level.PlayerHarryActor).StartVendorEngagement(self);
 	
+	// Get the jellybeans StatusGroup
 	sgJellyBeans = harry(Level.PlayerHarryActor).managerStatus.GetStatusGroup(Class'StatusGroupJellybeans');
+
+	// Set the bean counter effect type to permanent so it doesn't go away
 	sgJellyBeans.SetEffectTypeToPermanent();
+
+	// Set the StatusGroup to cutscene render mode
 	sgJellyBeans.SetCutSceneRenderMode(True);
 	
+	// Set the cut notify actor references to self
 	Level.PlayerHarryActor.CutNotifyActor = self;
 	harry(Level.PlayerHarryActor).Cam.CutNotifyActor = self;
 	Vendor.CutNotifyActor = self;
 	
+	// Run the capture command on each relevant actor
 	Level.PlayerHarryActor.CutCommand(strCAPTURE_COMMAND);
 	harry(Level.PlayerHarryActor).Cam.CutCommand(strCAPTURE_COMMAND);
 	Vendor.CutCommand(strCAPTURE_COMMAND);
 	
+	// Reset items bought in current transaction to 0
 	nItemsBoughtInCurrTransaction = 0;
+
+	// Get the selling price from the vendor
 	nCurrPrice = Vendor.GetSellingPrice();
+
+	// Go to EngageVendor state
 	GotoState('EngageVendor');
 }
 
+// Randomly returns one of three constant animation names
 function string GetAnimParam()
 {
 	switch (Rand(3))
@@ -187,6 +235,7 @@ function string GetAnimParam()
 	}
 }
 
+// Set vendor bar flags in the console to the given value, used to toggle vendor HUD
 function SetConsoleVendorBarFlags (bool bSet)
 {
 	HPConsole(Level.PlayerHarryActor.Player.Console).bVendorBar = bSet;
@@ -194,55 +243,83 @@ function SetConsoleVendorBarFlags (bool bSet)
 	HPConsole(Level.PlayerHarryActor.Player.Console).Viewport.bShowWindowsMouse = bSet;
 }
 
+// Handles cutscene talking
 function DoCutTalk (Actor actorTalk, string strDialogID, string strTalkAnimName, string strLoopAnimName, string strIndefiniteParam, string strCue)
 {
 	local string strDialog;
 	local TimedCue tcue;
 	local float fSoundLen;
 
+	// If dialog ID is blank, call the cut cue
 	if ( strDialogID == "" )
 	{
 		CutCue(strCue);
-	} 
+	}
+	// Otherwise
 	else 
     {
-		if (  !Vendor.IsDuelVendor() )
+		// If vendor is not a duelling vendor, run the talk cut command
+		if ( !Vendor.IsDuelVendor() )
 		{
 			actorTalk.CutCommand(strTALK_COMMAND $strDialogID $strTalkAnimName $strLoopAnimName $strIndefiniteParam,strCue);
 		}
+		// Otherwise
 		else 
 		{
+			// Localize dialog string
 			strDialog = (Localize("All",strDialogID,"HPMenu"));
+
+			// Calculate dialog sound length
 			fSoundLen = (Len(strDialog) * 0.01) + 3.0;
+
+			// If indefinite param string is blank
 			if ( strIndefiniteParam == "" )
 			{
+				// Spawn a timed cue
 				tcue = Spawn(Class'TimedCue');
+
+				// Set cut notify actor to self
 				tcue.CutNotifyActor = self;
+
+				// Setup timed cue timer for fSoundLen plus 0.5 seconds, calling the cut cue when done
 				tcue.SetupTimer(fSoundLen + 0.5,strCue);
+
+				// Print "Indefinite"
 				harry(Level.PlayerHarryActor).ClientMessage("Indefinite");
+
+				// Set the subtitle text to the localized dialog for sound length
 				harry(Level.PlayerHarryActor).myHUD.SetSubtitleText(strDialog,fSoundLen);
-			} 
+			}
+			// Otherwise
 			else 
 			{
+				// Set subtitle text to the localize dialog for 0.0 seconds
 				harry(Level.PlayerHarryActor).myHUD.SetSubtitleText(strDialog,0.0);
+
+				// Call the cut cue
 				CutCue(strCue);
 			}
 		}
 	}
 }
 
+// Plays the narrator instructions
 function DoNarratorInstructions()
 {
+	// If vendor instruction ID is blank, call cut cue
 	if ( Vendor.GetVendorInstructionId() == "" )
 	{
 		CutCue(strCUE_INSTRUCTIONS);
-	} 
+	}
+	// Otherwise
 	else 
     {
+		// If vendor is a dueling vendor, do cutscene talk
 		if ( Vendor.IsDuelVendor() )
 		{
 			DoCutTalk(Level.PlayerHarryActor,Vendor.GetVendorInstructionId(),"","",strINDEFINITE_TEXT_PARAM,strCUE_INSTRUCTIONS);
-		} 
+		}
+		// Otherwise, do say cut command
 		else 
 		{
 			CutCommand(strSAY_COMMAND $Vendor.GetVendorInstructionId() $strINDEFINITE_TEXT_PARAM,strCUE_INSTRUCTIONS);
@@ -250,85 +327,114 @@ function DoNarratorInstructions()
 	}
 }
 
+// Returns whether or not instructions need to be read out
 function bool WantInstructions()
 {
-	return (harry(Level.PlayerHarryActor).bSaidVendorInstructions == False || Vendor.IsDuelVendor());
+	return !harry(Level.PlayerHarryActor).bSaidVendorInstructions || Vendor.IsDuelVendor();
 }
 
+// Automatic state idle, does nothing on its own
 auto state Idle
 {
 }
 
+// Engage vendor state
 state EngageVendor
 {	
+	// Handle cut cue
 	function CutCue (string cue)
 	{
 		local string strStayUpText;
 		local float fSoundLenDummy;
   
+		// If cue is vendor turn done
 		if ( cue ~= strCUE_VENDOR_TURN_DONE )
 		{
+			// Move camera to vendor with offset
 			harry(Level.PlayerHarryActor).Cam.CutCommand(strFLYTO_COMMAND $Vendor.CutName $" x=80 y=80");
+
+			// Turn camera to vendor with offset
 			harry(Level.PlayerHarryActor).Cam.CutCommand(strTARGET_FLYTO_COMMAND $Vendor.CutName $" x=10 z=10",strCUE_CAMERA_IN_POSITION);
-			//Vendor.GetWeasleyTwin();
+			
 			WeasleyTwin = WeasTwin; // Metallicafan212: To be compatible with the new engine
+
+			// If we have a Weasley twin, put them in stateIdle
 			if ( WeasleyTwin != None )
 			{
 				WeasleyTwin.GotoState('stateIdle');
 			}
-		} 
+		}
+		// Otherwise, if cue is camera in position, do inquiry cut talk
 		else if ( cue ~= strCUE_CAMERA_IN_POSITION )
 		{
 			DoCutTalk(Level.PlayerHarryActor,Vendor.GetVendorHarryInquiryId(),strQUESTION_ANIM_PARAM,"","",strCUE_HARRY_INQUIRY);
-		} 
+		}
+		// Otherwise, if cue is Harry inquiry
 		else if ( cue ~= strCUE_HARRY_INQUIRY )
 		{
+			// If vendor has something to sell
 			if ( Vendor.HaveSomethingToSell() )
 			{
+				// If we want instructions, do cut talk without indefinite text
 				if ( WantInstructions() )
 				{
 					DoCutTalk(Vendor,Vendor.GetSellDialogId(),GetAnimParam(),strVENDOR_WAIT_ANIM_PARAM,"",strCUE_IHAVE_X);
-				} 
+				}
+				// Otherwise, do cut talk with indefinite text
 				else 
 				{
 					DoCutTalk(Vendor,Vendor.GetSellDialogId(),GetAnimParam(),strVENDOR_WAIT_ANIM_PARAM,strINDEFINITE_TEXT_PARAM,strCUE_IHAVE_X);
 				}
-			} 
-			else 
+			}
+			// Otherwise, do out of stock cut talk
+			else
 			{
 				DoCutTalk(Vendor,Vendor.GetVendorOutOfStockId(),GetAnimParam(),"","",strCUE_OUT_OF_STOCK);
 			}
-        } 
+        }
+		// Otherwise, if cue is out of stock, disengage vendor
 		else if ( cue ~= strCUE_OUT_OF_STOCK )
 		{
 			DoDisengageVendor();
-		} 
+		}
+		// Otherwise, if cue is I have X (item)
 		else if ( cue ~= strCUE_IHAVE_X )
 		{
+			// If we want instructions, do instructions and set that we have done them
 			if ( WantInstructions() )
 			{
 				DoNarratorInstructions();
                 harry(Level.PlayerHarryActor).bSaidVendorInstructions = True;
-			} 
+			}
+			// Otherwise, go to the VendorTransaction state
 			else 
 			{
 				GotoState('VendorTransaction');
 			}
-		} 
+		}
+		// Otherwise, if cue is instructions, go to the VendorTransaction state
 		else if ( cue ~= strCUE_INSTRUCTIONS )
 		{
 			GotoState('VendorTransaction');
 		}
 	}
   
+	// Begin label
 	begin:
+		// Stop all horizontal movement on Harry
 		Level.PlayerHarryActor.Acceleration = vect(0.00,0.00,0.00);
 		Level.PlayerHarryActor.Velocity *= vect(0.00,0.00,1.00);
+
+		// Turn Harry towards vendor
 		harry(Level.PlayerHarryActor).TurnTo(Level.PlayerHarryActor.Location + (Vendor.Location - Level.PlayerHarryActor.Location) * vect(1.00,1.00,0.00));
+		
+		// Turn vendor towards Harry
 		Vendor.CutCommand(strFACE_HARRY_COMMAND,strCUE_VENDOR_TURN_DONE);
-		//WeasleyTwin = Vendor.GetWeasleyTwin();
-		// Metallicafan212: Cached previously
+
+		// Get cached Weasley twin
 		WeasleyTwin = WeasTwin;
+
+		// If we have a Weasley twin, set them to stateIdle and make them face Harry
 		if ( WeasleyTwin != None )
 		{
 			WeasleyTwin.GotoState('stateIdle');
@@ -336,177 +442,253 @@ state EngageVendor
 		}
 }
 
+// Vendor Transaction state
 state VendorTransaction
 {
+	// Render HUD elements
 	function RenderHud (Canvas canvas, bool bMenuMode, bool bFullCutMode, bool bHalfCutMode)
 	{
 		local StatusGroup sgJellyBeans;
-  
+
+		// Get jellybeans StatusGroup
 		sgJellyBeans = harry(Level.PlayerHarryActor).managerStatus.GetStatusGroup(Class'StatusGroupJellybeans');
+
+		// Render jellybean counter
 		sgJellyBeans.RenderHudItemManager(canvas,bMenuMode,bFullCutMode,bHalfCutMode);
+
+		// Draw vendor bar
 		DrawVendorBar(canvas);
 	}
-  
+
+	// Handle cut cue
 	function CutCue (string cue)
 	{
+		// If cue is transaction done, decline sale, or out of stock, disengage vendor
 		if ( cue ~= strCUE_TRANSACTION_DONE || cue ~= strCUE_DECLINE_SALE || cue ~= strCUE_OUT_OF_STOCK )
 		{
 			DoDisengageVendor();
 		}
 	}
-  
+
+	// On player input
 	event PlayerInput (float fDeltaTime)
 	{
-		if (  !HPConsole(Level.PlayerHarryActor.Player.Console).Viewport.bShowWindowsMouse )
+		// If not showing mouse cursor, do nothing and return
+		if ( !HPConsole(Level.PlayerHarryActor.Player.Console).Viewport.bShowWindowsMouse )
 		{
 			return;
 		}
+
+		// If pressing bVendorReply and mouse is over yes
 		if ( (harry(Level.PlayerHarryActor).bVendorReply == 1) && IsMouseOverVendorYes() )
 		{
+			// Play GUI sound
 			Level.PlayerHarryActor.PlaySound(Sound'ss_gui_rotatebut_0003');
+
+			// Set console bar flags to false
 			SetConsoleVendorBarFlags(False);
-			if (  !Vendor.HaveSomethingToSell() )
+
+			// If vendor has nothing to sell, do out of stock cut talk
+			if ( !Vendor.HaveSomethingToSell() )
 			{
 				DoCutTalk(Vendor,Vendor.GetVendorOutOfStockId(),GetAnimParam(),"","",strCUE_OUT_OF_STOCK);
-			} 
-			else if (  !HarryHasEnoughBeans(nCurrPrice) )
+			}
+			// Otherwise, if Harry doesn't have enough beans, go to NotEnoughBeans state
+			else if ( !HarryHasEnoughBeans(nCurrPrice) )
 			{
 				GotoState('NotEnoughBeans');
-			} 
+			}
+			// Otherwise, increase number of items bought in current transaction and go to MakePurchase state
 			else 
 			{
 				nItemsBoughtInCurrTransaction++;
 				GotoState('MakePurchase');
 			}
-		} 
+		}
+		// Otherwise, if pressing bVendorReply and mouse is over no
 		else if ( (harry(Level.PlayerHarryActor).bVendorReply == 1) && IsMouseOverVendorNo() )
 		{
+			// Play GUI sound
 			Level.PlayerHarryActor.PlaySound(Sound'ss_gui_rotatebut_0002');
+
+			// Set console bar flags to false
 			SetConsoleVendorBarFlags(False);
+
+			// If Harry bought any items, do transaction done cut talk
 			if ( nItemsBoughtInCurrTransaction > 0 )
 			{
 				DoCutTalk(Vendor,Vendor.GetVendorTransactionDoneId(),GetAnimParam(),"","",strCUE_TRANSACTION_DONE);
-			} 
+			}
+			// Otherwise, do decline cut talk
 			else 
 			{
 				DoCutTalk(Vendor,Vendor.GetVendorDeclineId(),GetAnimParam(),"","",strCUE_DECLINE_SALE);
 			}
 		}
 	}
-  
+
+	// On state begin, set console flags to true
 	event BeginState()
 	{
 		SetConsoleVendorBarFlags(True);
 	}
-  
+
+	// On state end, set console flags to false
 	event EndState()
 	{
 		SetConsoleVendorBarFlags(False);
 	}
-  
+
+	// Begin label
 	begin:
+		// Loop idle animation on vendor
 		Vendor.LoopAnim('vendor_idle2',RandRange(0.80,1.20),0.2);
 }
 
+// Make Purchase state
 state MakePurchase
 {
-	function Tick (float fDeltaTime)
+	// On tick
+	event Tick (float DeltaTime)
 	{
+		// If saved delta time is above 0
 		if ( fTickDelta > 0.0 )
 		{
+			// If bean subtract count is above 0
 			if ( nSubtractBeans > 0 )
 			{
+				// If bean subtract count is above or equal to the amount to remove per tick
 				if ( nSubtractBeans >= nMinusBeansPerTick )
 				{
+					// Remove beans from StatusGroup using the negated value of nMinusBeansPerTick
 					managerStatus.IncrementCount(Class'StatusGroupJellybeans',Class'StatusItemJellybeans', -nMinusBeansPerTick);
+
+					// Subtract the amount we removed from the total subtraction amount
 					nSubtractBeans -= nMinusBeansPerTick;
-				} 
+				}
+				// Otherwise
 				else 
 				{
+					// Remove beans from StatusGroup using the negated value of nSubtractBeans
 					managerStatus.IncrementCount(Class'StatusGroupJellybeans',Class'StatusItemJellybeans', -nSubtractBeans);
+
+					// Set bean subtract count to 0
 					nSubtractBeans = 0;
 				}
 			}
 		}
+		// Otherwise, store the current delta time
 		else 
 		{
-			fTickDelta = fDeltaTime;
+			fTickDelta = DeltaTime;
 		}
 	}
-  
+
+	// Render HUD elements
 	function RenderHud (Canvas canvas, bool bMenuMode, bool bFullCutMode, bool bHalfCutMode)
 	{
 		local StatusGroup sgJellyBeans;
-  
+		
+		// Get jellybeans StatusGroup
 		sgJellyBeans = harry(Level.PlayerHarryActor).managerStatus.GetStatusGroup(Class'StatusGroupJellybeans');
+
+		// Render jellybean counter
 		sgJellyBeans.RenderHudItemManager(canvas,bMenuMode,bFullCutMode,bHalfCutMode);
 	}
-  
+
+	// Handle cut cue
 	function CutCue (string cue)
 	{
+		// If cue is item sold
 		if ( cue ~= strCUE_ITEM_SOLD )
 		{
+			// If vendor is dueling vendor, set rank to 0
 			if ( Vendor.IsDuelVendor() )
 			{
 				Vendor.DuelRank = 0;
 			}
+
+			// If vendor has nothing to sell, do transaction done cut talk
 			if (  !Vendor.HaveSomethingToSell() )
 			{
 				DoCutTalk(Vendor,Vendor.GetVendorTransactionDoneId(),GetAnimParam(),"","",strCUE_TRANSACTION_DONE);
 			}
+			// Otherwise, go to VendorTransaction state
 			else 
 			{
 				GotoState('VendorTransaction');
 			}
-		} 
+		}
+		// Otherwise, if cue is transaction done, do out of stock cut talk
 		else if ( cue ~= strCUE_TRANSACTION_DONE )
 		{
 			DoCutTalk(Vendor,Vendor.GetVendorOutOfStockId(),GetAnimParam(),"","",strCUE_OUT_OF_STOCK);
-		} 
+		}
+		// Otherwise, if cue is out of stock, disengage
 		else if ( cue ~= strCUE_OUT_OF_STOCK )
         {
 			DoDisengageVendor();
         }
 	}
-  
+
+	// On state begin, get StatusManager from Harry
 	event BeginState()
 	{
 		managerStatus = harry(Level.PlayerHarryActor).managerStatus;
 	}
-  
+
+	// Begin label
 	begin:
+		// While stored delta time is less than or equal to 0.0, sleep for 0.1 seconds
 		while (fTickDelta <= 0.0 )
 		{
 			Sleep(0.1);
 		}
 	
+		// Set subtract bean count to current price
 		nSubtractBeans = nCurrPrice;
+
+		// Calculate the ticks per second
 		fTicksPerSec = 1.0 / fTickDelta;
+		
+		// Calculate the amount of beans to remove per tick
 		nMinusBeansPerTick = nCurrPrice / (1.5 * fTicksPerSec);
 	
+		// If calculate remove rate is less than 1.0, set it to 1.0
 		if ( nMinusBeansPerTick < 1 )
 		{
 			nMinusBeansPerTick = 1;
 		}
 	
+		// While we still have beans to remove, sleep for 0.1 seconds
 		while ( nSubtractBeans > 0 )
 		{
 			Sleep(0.1);
 		}
+
+		// If vendor is a dueling vendor
 		if ( Vendor.IsDuelVendor() )
 		{
-			if ( Vendor.IsDuelVendor() && (Vendor.DuelLevelTrigger != None) )
+			// If duel level trigger is not none
+			if ( Vendor.DuelLevelTrigger != None )
 			{
+				// Set Harry's rank opponent and beans to the vendor's rank and beans
 				harry(Level.PlayerHarryActor).DuelRankOppon = Vendor.DuelRank;
 				harry(Level.PlayerHarryActor).DuelRankBeans = Vendor.DuelBeans;
+
+				// Process level trigger
 				Vendor.DuelLevelTrigger.ProcessTrigger();
 			}
 		}
+
+		// Execute sell vendor item cut command on vendor
 		Vendor.CutCommand("SellVendorItem" $GetAnimParam(),strCUE_ITEM_SOLD);
 }
 
+// Not Enough Beans state
 state NotEnoughBeans
 {
+	// Render HUD elements
 	function RenderHud (Canvas canvas, bool bMenuMode, bool bFullCutMode, bool bHalfCutMode)
 	{
 		local StatusGroup sgJellyBeans;
